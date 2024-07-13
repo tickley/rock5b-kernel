@@ -11,6 +11,12 @@
 	model = "Rockchip RK3328 EVB";
 	compatible = "rockchip,rk3328-evb", "rockchip,rk3328";
 
+	aliases {
+		mmc0 = &sdmmc;
+		mmc1 = &sdio;
+		mmc2 = &emmc;
+	};
+
 	chosen {
 		bootargs = "earlycon=uart8250,mmio32,0xff130000 swiotlb=1 kpti=0 console=ttyFIQ0 root=PARTUUID=614e0000-0000 rw rootwait coherent_pool=1m";
 	};
@@ -32,7 +38,7 @@
 		#size-cells = <2>;
 		ranges;
 
-		drm_logo: drm-logo@00000000 {
+		drm_logo: drm-logo@0 {
 			compatible = "rockchip,drm-logo";
 			reg = <0x0 0x0 0x0 0x0>;
 		};

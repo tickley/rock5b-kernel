@@ -9,7 +9,8 @@
 #include <crypto/des.h>
 #include <crypto/algapi.h>
 #include <crypto/md5.h>
-#include <crypto/sha.h>
+#include <crypto/sha1.h>
+#include <crypto/sha2.h>
 #include <crypto/sm3.h>
 #include <crypto/sm4.h>
 #include <crypto/gcm.h>
@@ -437,6 +438,11 @@ enum rk_cipher_mode {
 		} \
 	} \
 }
+
+#define CRYPTO_MAJOR_VER(ver)	((ver) & 0x0f000000)
+
+#define CRYPTO_MAJOR_VER_3	0x03000000
+#define CRYPTO_MAJOR_VER_4	0x04000000
 
 #define IS_TYPE_HMAC(type) ((type) == ALG_TYPE_HMAC)
 

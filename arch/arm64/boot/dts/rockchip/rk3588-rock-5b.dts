@@ -45,20 +45,20 @@
 		vin-supply = <&vcc12v_dcin>;
 	};
 
-	wifi_disable: wifi-diable-gpio-regulator {
-		compatible = "regulator-fixed";
-		regulator-name = "wifi_disable";
-		enable-active-high;
-		gpio = <&gpio4 RK_PA2 GPIO_ACTIVE_HIGH>;
-		regulator-boot-on;
-		regulator-always-on;
-	};
-
 	bt_wake: bt-wake-gpio-regulator {
 		compatible = "regulator-fixed";
 		regulator-name = "bt_wake";
 		enable-active-high;
 		gpio = <&gpio3 RK_PD5 GPIO_ACTIVE_HIGH>;
+		regulator-boot-on;
+		regulator-always-on;
+	};
+
+	wifi_disable: wifi-diable-gpio-regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "wifi_disable";
+		enable-active-high;
+		gpio = <&gpio4 RK_PA2 GPIO_ACTIVE_HIGH>;
 		regulator-boot-on;
 		regulator-always-on;
 	};
@@ -127,7 +127,7 @@
 		rockchip,card-name = "rockchip-es8316";
 		rockchip,format = "i2s";
 		rockchip,mclk-fs = <256>;
-		rockchip,cpu = <&i2s0_8ch>;
+		rockchip,cpu = <&i2s0_8ch >;
 		rockchip,codec = <&es8316>;
 		poll-interval = <100>;
 		io-channels = <&saradc 3>;
@@ -190,6 +190,17 @@
 		vin-supply = <&vcc5v0_sys>;
 	};
 
+	gpio-leds {
+		compatible = "gpio-leds";
+		pinctrl-names = "default";
+
+		user-led2 {
+			gpios = <&gpio0 RK_PB7 GPIO_ACTIVE_HIGH>;
+			linux,default-trigger = "heartbeat";
+			default-state = "on";
+		};
+	};
+
 	/* If hdmirx node is disabled, delete the reserved-memory node here. */
 	reserved-memory {
 		#address-cells = <2>;
@@ -206,7 +217,7 @@
 	};
 
 	hdmiin-sound {
-				compatible = "rockchip,hdmi";
+		compatible = "rockchip,hdmi";
 		rockchip,mclk-fs = <128>;
 		rockchip,format = "i2s";
 		rockchip,bitclock-master = <&hdmirx_ctrler>;
@@ -215,17 +226,6 @@
 		rockchip,cpu = <&i2s7_8ch>;
 		rockchip,codec = <&hdmirx_ctrler 0>;
 		rockchip,jack-det;
-	};
-
-	gpio-leds {
-		compatible = "gpio-leds";
-		pinctrl-names = "default";
-
-		user-led2 {
-			gpios = <&gpio0 RK_PB7 GPIO_ACTIVE_HIGH>;
-			linux,default-trigger = "heartbeat";
-			default-state = "on";
-		};
 	};
 
 	fan: pwm-fan {
@@ -493,7 +493,6 @@
 	max-frequency = <200000000>;
 	mmc-hs400-1_8v;
 	mmc-hs400-enhanced-strobe;
-	mmc-hs200-1_8v;
 	status = "okay";
 };
 
@@ -553,7 +552,7 @@
 };
 
 &display_subsystem {
-	clocks = <&hdptxphy_hdmi_clk0>, <&hdptxphy_hdmi_clk1>;
+	clocks = <&hdptxphy_hdmi0>, <&hdptxphy_hdmi1>;
 	clock-names = "hdmi0_phy_pll", "hdmi1_phy_pll";
 
 	route {
@@ -577,11 +576,11 @@
 	};
 };
 
-&hdptxphy_hdmi_clk0 {
+&hdptxphy_hdmi0 {
 	status = "okay";
 };
 
-&hdptxphy_hdmi_clk1 {
+&hdptxphy_hdmi1 {
 	status = "okay";
 };
 
@@ -631,24 +630,25 @@
 	status = "okay";
 };
 
+/* Should work with at least 128MB cma reserved above. */
+&hdmirx_ctrler {
+	status = "okay";
+
+	#sound-dai-cells = <1>;
+	/* Effective level used to trigger HPD: 0-low, 1-high */
+	hpd-trigger-level = <1>;
+	hdmirx-det-gpios = <&gpio1 RK_PC6 GPIO_ACTIVE_LOW>;
+
+	pinctrl-0 = <&hdmim1_rx_cec &hdmim1_rx_hpdin &hdmim1_rx_scl &hdmim1_rx_sda &hdmirx_det>;
+	pinctrl-names = "default";
+};
+
 &hdptxphy_hdmi0 {
 	status = "okay";
 };
 
 &hdptxphy_hdmi1 {
 	status = "okay";
-};
-
-/* Should work with at least 128MB cma reserved above. */
-&hdmirx_ctrler {
-	status = "okay";
-
-	/* Effective level used to trigger HPD: 0-low, 1-high */
-	hpd-trigger-level = <1>;
-	hdmirx-det-gpios = <&gpio1 RK_PC6 GPIO_ACTIVE_LOW>;
-	pinctrl-0 = <&hdmim1_rx_cec &hdmim1_rx_hpdin &hdmim1_rx_scl &hdmim1_rx_sda &hdmirx_det>;
-	pinctrl-names = "default";
-	#sound-dai-cells = <1>;
 };
 
 &i2s5_8ch {
@@ -800,6 +800,7 @@
 			compatible = "usb-c-connector";
 			label = "USB-C";
 			data-role = "dual";
+			faster-pd-negotiation;
 			power-role = "sink";
 			try-power-role = "sink";
 			op-sink-microwatt = <1000000>;
@@ -974,8 +975,6 @@
 		reg = <0x11>;
 		clocks = <&mclkout_i2s0>;
 		clock-names = "mclk";
-		assigned-clocks = <&mclkout_i2s0>;
-		assigned-clock-rates = <12288000>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&i2s0_mclk>;
 		#sound-dai-cells = <0>;
@@ -989,9 +988,40 @@
 	#sound-dai-cells = <0>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&i2s0_lrck
-		     &i2s0_sclk
-		     &i2s0_sdi0
-		     &i2s0_sdo0>;
+			 &i2s0_sclk
+			 &i2s0_sdi0
+			 &i2s0_sdo0>;
+};
+
+&sfc {
+	status = "okay";
+	max-freq = <50000000>;
+	#address-cells = <1>;
+	#size-cells = <0>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&fspim2_pins>;
+
+	spi_flash: spi-flash@0 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "jedec,spi-nor";
+		reg = <0x0>;
+		spi-max-frequency = <50000000>;
+		spi-tx-bus-width = <1>;
+		spi-rx-bus-width = <4>;
+		status = "okay";
+
+		partitions {
+			compatible = "fixed-partitions";
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			loader@0 {
+				label = "loader";
+				reg = <0x0 0x1000000>;
+			};
+		};
+	};
 };
 
 &rockchip_suspend {
@@ -1050,37 +1080,6 @@
 	regulator-state-mem {
 		regulator-on-in-suspend;
 		regulator-suspend-microvolt = <850000>;
-	};
-};
-
-&sfc {
-	status = "okay";
-	max-freq = <50000000>;
-	#address-cells = <1>;
-	#size-cells = <0>;
-	pinctrl-names = "default";
-	pinctrl-0 = <&fspim2_pins>;
-
-	spi_flash: spi-flash@0 {
-		#address-cells = <1>;
-		#size-cells = <0>;
-		compatible = "jedec,spi-nor";
-		reg = <0x0>;
-		spi-max-frequency = <50000000>;
-		spi-tx-bus-width = <1>;
-		spi-rx-bus-width = <4>;
-		status = "okay";
-
-		partitions {
-			compatible = "fixed-partitions";
-			#address-cells = <1>;
-			#size-cells = <1>;
-
-			loader@0 {
-				label = "loader";
-				reg = <0x0 0x1000000>;
-			};
-		};
 	};
 };
 
@@ -1144,119 +1143,4 @@
 			rockchip,pins = <3 RK_PD5 RK_FUNC_GPIO &pcfg_pull_none>;
 		};
 	};
-};
-
-&gpio0 {
-	gpio-line-names =
-		/* GPIO0_A0-A3 */
-		"", "", "", "",
-		/* GPIO0_A4-A7 */
-		"", "", "", "",
-
-		/* GPIO0_B0-B3 */
-		"", "", "", "",
-		/* GPIO0_B4-B7 */
-		"", "PIN_8", "PIN_10", "",
-
-		/* GPIO0_C0-C3 */
-		"", "", "", "",
-		/* GPIO0_C4-C7 */
-		"", "", "", "",
-
-		/* GPIO0_D0-D3 */
-		"", "", "", "",
-		/* GPIO0_D4-D7 */
-		"", "", "", "";
-};
-
-&gpio1 {
-	gpio-line-names =
-		/* GPIO1_A0-A3 */
-		"", "", "", "",
-		/* GPIO1_A4-A7 */
-		"", "", "", "",
-
-		/* GPIO1_B0-B3 */
-		"", "PIN_21", "PIN_19", "PIN_23",
-		/* GPIO1_B4-B7 */
-		"PIN_24", "PIN_26", "", "PIN_31",
-
-		/* GPIO1_C0-C3 */
-		"", "", "", "",
-		/* GPIO1_C4-C7 */
-		"", "", "", "",
-
-		/* GPIO1_D0-D3 */
-		"", "", "", "",
-		/* GPIO1_D4-D7 */
-		"", "", "", "PIN_29";
-};
-
-&gpio2 {
-	gpio-line-names =
-		/* GPIO2_A0-A3 */
-		"", "", "", "",
-		/* GPIO2_A4-A7 */
-		"", "", "", "",
-
-		/* GPIO2_B0-B3 */
-		"", "", "", "",
-		/* GPIO2_B4-B7 */
-		"", "", "", "",
-
-		/* GPIO2_C0-C3 */
-		"", "", "", "",
-		/* GPIO2_C4-C7 */
-		"", "", "", "",
-
-		/* GPIO2_D0-D3 */
-		"", "", "", "",
-		/* GPIO2_D4-D7 */
-		"", "", "", "";
-};
-
-&gpio3 {
-	gpio-line-names =
-		/* GPIO3_A0-A3 */
-		"", "", "", "",
-		/* GPIO3_A4-A7 */
-		"PIN_16", "", "", "PIN_33",
-
-		/* GPIO3_B0-B3 */
-		"", "PIN_36", "PIN_38", "PIN_40",
-		/* GPIO3_B4-B7 */
-		"", "PIN_12", "PIN_35", "PIN_13",
-
-		/* GPIO3_C0-C3 */
-		"PIN_15", "PIN_11", "PIN_32", "PIN_7",
-		/* GPIO3_C4-C7 */
-		"", "", "", "",
-
-		/* GPIO3_D0-D3 */
-		"", "", "", "",
-		/* GPIO3_D4-D7 */
-		"", "", "", "";
-};
-
-&gpio4 {
-	gpio-line-names =
-		/* GPIO4_A0-A3 */
-		"", "", "", "",
-		/* GPIO4_A4-A7 */
-		"", "", "", "",
-
-		/* GPIO4_B0-B3 */
-		"", "", "PIN_5", "PIN_3",
-		/* GPIO4_B4-B7 */
-		"", "", "", "",
-
-		/* GPIO4_C0-C3 */
-		"", "", "", "",
-		/* GPIO4_C4-C7 */
-		"PIN_18", "PIN_28", "PIN_27", "",
-
-		/* GPIO4_D0-D3 */
-		"", "", "", "",
-		/* GPIO4_D4-D7 */
-		"", "", "", "";
 };

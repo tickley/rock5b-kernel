@@ -273,7 +273,7 @@
 		rockchip,grf = <&sys_grf>;
 		rockchip,temp-hysteresis = <5000>;
 		rockchip,low-temp = <10000>;
-		rockchip,low-temp-min-volt = <925000>;
+		rockchip,low-temp-min-volt = <1050000>;
 
 		opp-408000000 {
 			opp-hz = /bits/ 64 <408000000>;
@@ -501,7 +501,7 @@
 
 		rockchip,temp-hysteresis = <5000>;
 		rockchip,low-temp = <10000>;
-		rockchip,low-temp-min-volt = <900000>;
+		rockchip,low-temp-min-volt = <950000>;
 
 		rockchip,leakage-voltage-sel = <
 			1   15    0
@@ -578,7 +578,7 @@
 		#size-cells = <2>;
 		ranges;
 
-		drm_logo: drm-logo@00000000 {
+		drm_logo: drm-logo@0 {
 			compatible = "rockchip,drm-logo";
 			reg = <0x0 0x0 0x0 0x0>;
 		};
@@ -588,7 +588,7 @@
 			reg = <0x0 0x0 0x0 0x0>;
 		};
 
-		drm_cubic_lut: drm-cubic-lut@00000000 {
+		drm_cubic_lut: drm-cubic-lut@0 {
 			compatible = "rockchip,drm-cubic-lut";
 			reg = <0x0 0x0 0x0 0x0>;
 		};
@@ -2043,13 +2043,13 @@
 		phys = <&combphy_pu PHY_TYPE_PCIE>;
 		phy-names = "pcie-phy";
 		power-domains = <&power RK3562_PD_PHP>;
-		ranges = <0x00000800 0x0 0xfc000000 0x0 0xfc000000 0x0 0x100000
-			  0x81000000 0x0 0xfc100000 0x0 0xfc100000 0x0 0x100000
+		ranges = <0x81000000 0x0 0xfc100000 0x0 0xfc100000 0x0 0x100000
 			  0x82000000 0x0 0xfc200000 0x0 0xfc200000 0x0 0x1e00000
 			  0xc3000000 0x3 0x00000000 0x3 0x00000000 0x0 0x40000000>;
 		reg = <0x0 0xfe000000 0x0 0x400000>,
-		      <0x0 0xff500000 0x0 0x10000>;
-		reg-names = "pcie-dbi", "pcie-apb";
+		      <0x0 0xff500000 0x0 0x10000>,
+		      <0x0 0xfc000000 0x0 0x100000>;
+		reg-names = "pcie-dbi", "pcie-apb", "config";
 		resets = <&cru SRST_PCIE20_POWERUP>;
 		reset-names = "pipe";
 		status = "disabled";
@@ -2535,8 +2535,6 @@
 		interrupts = <GIC_SPI 128 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&cru SCLK_SFC>, <&cru HCLK_SFC>;
 		clock-names = "clk_sfc", "hclk_sfc";
-		assigned-clocks = <&cru SCLK_SFC>;
-		assigned-clock-rates = <100000000>;
 		#address-cells = <1>;
 		#size-cells = <0>;
 		status = "disabled";
@@ -3050,7 +3048,7 @@
 	rockchip_suspend: rockchip-suspend {
 		compatible = "rockchip,pm-rk3562";
 		status = "disabled";
-		rockchip,sleep-debug-en = <1>;
+		rockchip,sleep-debug-en = <0>;
 		rockchip,sleep-mode-config = <
 			(0
 			| RKPM_SLP_DEEP1_MODE
@@ -3066,6 +3064,7 @@
 			| RKPM_GPIO0_WKUP_EN
 			)
 		>;
+		power-domains = <&power RK3562_PD_PHP>;
 	};
 };
 

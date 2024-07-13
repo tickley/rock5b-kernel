@@ -123,8 +123,6 @@ static void snd_dmaengine_mpcm_set_config_from_dai_data(
 		if (dma_data->addr_width != DMA_SLAVE_BUSWIDTH_UNDEFINED)
 			slave_config->src_addr_width = dma_data->addr_width;
 	}
-
-	slave_config->slave_id = dma_data->slave_id;
 }
 
 static void dmaengine_mpcm_dma_complete(void *arg)
@@ -198,6 +196,8 @@ static int dmaengine_config_interleaved(struct snd_pcm_substream *substream,
 
 #ifdef CONFIG_NO_GKI
 	xt->nump = nump;
+#else
+	xt->sgl[1].size = nump;
 #endif
 	xt->numf = numf;
 
@@ -694,8 +694,14 @@ static int dmaengine_mpcm_open(struct snd_soc_component *component,
 	if (!prtd)
 		return -ENOMEM;
 
+#ifdef CONFIG_NO_GKI
 	prtd->xt = kzalloc(sizeof(struct dma_interleaved_template) +
 			   sizeof(struct data_chunk), GFP_KERNEL);
+#else
+	prtd->xt = kzalloc(sizeof(struct dma_interleaved_template) +
+			   sizeof(struct data_chunk) * 2, GFP_KERNEL);
+
+#endif
 	if (!prtd->xt) {
 		kfree(prtd);
 		return -ENOMEM;

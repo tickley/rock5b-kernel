@@ -115,7 +115,7 @@
 		};
 	};
 
-	cpu0_opp_table: cpu0-opp-table {
+	cpu0_opp_table: opp-table-0 {
 		compatible = "operating-points-v2";
 		opp-shared;
 
@@ -399,7 +399,7 @@
 		#size-cells = <2>;
 		ranges;
 
-		drm_logo: drm-logo@00000000 {
+		drm_logo: drm-logo@0 {
 			compatible = "rockchip,drm-logo";
 			reg = <0x0 0x0 0x0 0x0>;
 		};
@@ -437,7 +437,7 @@
 
 	grf: grf@ff000000 {
 		compatible = "rockchip,rk3308-grf", "syscon", "simple-mfd";
-		reg = <0x0 0xff000000 0x0 0x10000>;
+		reg = <0x0 0xff000000 0x0 0x08000>;
 
 		io_domains: io-domains {
 			compatible = "rockchip,rk3308-io-voltage-domain";
@@ -916,6 +916,14 @@
 			polling-delay = <1000>; /* milliseconds */
 
 			thermal-sensors = <&tsadc 1>;
+
+			trips {
+				gpu_crit: gpu_crit {
+					temperature = <115000>; /* millicelsius */
+					hysteresis = <2000>; /* millicelsius */
+					type = "critical";
+				};
+			};
 		};
 	};
 
@@ -1039,6 +1047,7 @@
 		rockchip,cru = <&cru>;
 		rockchip,grf = <&grf>;
 		rockchip,mclk-calibrate;
+		i2s-lrck-gpio = <&gpio2 RK_PA7 GPIO_ACTIVE_HIGH>; /* i2s_8ch_0_lrcktx */
 		pinctrl-names = "default";
 		pinctrl-0 = <&i2s_8ch_0_sclktx
 			     &i2s_8ch_0_sclkrx
@@ -1076,6 +1085,7 @@
 		rockchip,grf = <&grf>;
 		rockchip,mclk-calibrate;
 		rockchip,io-multiplex;
+		i2s-lrck-gpio = <&gpio1 RK_PA5 GPIO_ACTIVE_HIGH>; /* i2s_8ch_1_m0_lrcktx */
 		status = "disabled";
 	};
 
@@ -1133,7 +1143,7 @@
 		dma-names = "tx", "rx";
 		resets = <&cru SRST_I2S0_2CH_M>, <&cru SRST_I2S0_2CH_H>;
 		reset-names = "reset-m", "reset-h";
-		rockchip,clk-trcm = <1>;
+		rockchip,trcm-sync-tx-only;
 		pinctrl-names = "default";
 		pinctrl-0 = <&i2s_2ch_0_sclk
 			     &i2s_2ch_0_lrck
@@ -1231,7 +1241,7 @@
 		status = "disabled";
 	};
 
-	usb_host0_ehci: usb@ff440000 {
+	usb_host0_ehci: usb_host_ehci: usb@ff440000 {
 		compatible = "generic-ehci";
 		reg = <0x0 0xff440000 0x0 0x10000>;
 		interrupts = <GIC_SPI 71 IRQ_TYPE_LEVEL_HIGH>;
@@ -1242,7 +1252,7 @@
 		status = "disabled";
 	};
 
-	usb_host0_ohci: usb@ff450000 {
+	usb_host0_ohci: usb_host_ohci: usb@ff450000 {
 		compatible = "generic-ohci";
 		reg = <0x0 0xff450000 0x0 0x10000>;
 		interrupts = <GIC_SPI 72 IRQ_TYPE_LEVEL_HIGH>;
@@ -1321,7 +1331,7 @@
 		status = "disabled";
 	};
 
-	mac: ethernet@ff4e0000 {
+	mac: gmac: ethernet@ff4e0000 {
 		compatible = "rockchip,rk3308-mac";
 		reg = <0x0 0xff4e0000 0x0 0x10000>;
 		interrupts = <GIC_SPI 64 IRQ_TYPE_LEVEL_HIGH>;
@@ -1357,6 +1367,8 @@
 	cru: clock-controller@ff500000 {
 		compatible = "rockchip,rk3308-cru";
 		reg = <0x0 0xff500000 0x0 0x1000>;
+		clocks = <&xin24m>;
+		clock-names = "xin24m";
 		rockchip,grf = <&grf>;
 		rockchip,boost = <&cpu_boost>;
 		#clock-cells = <1>;
@@ -1431,7 +1443,7 @@
 		#size-cells = <2>;
 		ranges;
 
-		gpio0: gpio0@ff220000 {
+		gpio0: gpio@ff220000 {
 			compatible = "rockchip,gpio-bank";
 			reg = <0x0 0xff220000 0x0 0x100>;
 			interrupts = <GIC_SPI 40 IRQ_TYPE_LEVEL_HIGH>;
@@ -1442,7 +1454,7 @@
 			#interrupt-cells = <2>;
 		};
 
-		gpio1: gpio1@ff230000 {
+		gpio1: gpio@ff230000 {
 			compatible = "rockchip,gpio-bank";
 			reg = <0x0 0xff230000 0x0 0x100>;
 			interrupts = <GIC_SPI 41 IRQ_TYPE_LEVEL_HIGH>;
@@ -1453,7 +1465,7 @@
 			#interrupt-cells = <2>;
 		};
 
-		gpio2: gpio2@ff240000 {
+		gpio2: gpio@ff240000 {
 			compatible = "rockchip,gpio-bank";
 			reg = <0x0 0xff240000 0x0 0x100>;
 			interrupts = <GIC_SPI 42 IRQ_TYPE_LEVEL_HIGH>;
@@ -1464,7 +1476,7 @@
 			#interrupt-cells = <2>;
 		};
 
-		gpio3: gpio3@ff250000 {
+		gpio3: gpio@ff250000 {
 			compatible = "rockchip,gpio-bank";
 			reg = <0x0 0xff250000 0x0 0x100>;
 			interrupts = <GIC_SPI 43 IRQ_TYPE_LEVEL_HIGH>;
@@ -1475,7 +1487,7 @@
 			#interrupt-cells = <2>;
 		};
 
-		gpio4: gpio4@ff260000 {
+		gpio4: gpio@ff260000 {
 			compatible = "rockchip,gpio-bank";
 			reg = <0x0 0xff260000 0x0 0x100>;
 			interrupts = <GIC_SPI 44 IRQ_TYPE_LEVEL_HIGH>;
@@ -1690,6 +1702,32 @@
 					<3 RK_PA5 1 &pcfg_pull_up_12ma>,
 					<3 RK_PA6 1 &pcfg_pull_up_12ma>,
 					<3 RK_PA7 1 &pcfg_pull_up_12ma>;
+			};
+		};
+
+		sfc {
+			sfc_bus4: sfc-bus4 {
+				rockchip,pins =
+					<3 RK_PA0 3 &pcfg_pull_none>,
+					<3 RK_PA1 3 &pcfg_pull_none>,
+					<3 RK_PA2 3 &pcfg_pull_none>,
+					<3 RK_PA3 3 &pcfg_pull_none>;
+			};
+
+			sfc_bus2: sfc-bus2 {
+				rockchip,pins =
+					<3 RK_PA0 3 &pcfg_pull_none>,
+					<3 RK_PA1 3 &pcfg_pull_none>;
+			};
+
+			sfc_cs0: sfc-cs0 {
+				rockchip,pins =
+					<3 RK_PA4 3 &pcfg_pull_none>;
+			};
+
+			sfc_clk: sfc-clk {
+				rockchip,pins =
+					<3 RK_PA5 3 &pcfg_pull_none>;
 			};
 		};
 

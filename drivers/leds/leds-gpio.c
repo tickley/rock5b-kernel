@@ -16,6 +16,7 @@
 #include <linux/platform_device.h>
 #include <linux/property.h>
 #include <linux/slab.h>
+#include "leds.h"
 
 struct gpio_led_data {
 	struct led_classdev cdev;
@@ -78,6 +79,25 @@ static int create_gpio_led(const struct gpio_led *template,
 	struct led_init_data init_data = {};
 	int ret, state;
 
+	led_dat->gpiod = template->gpiod;
+	if (!led_dat->gpiod) {
+		unsigned long flags = GPIOF_OUT_INIT_LOW;
+		if (!gpio_is_valid(template->gpio)) {
+			dev_info(parent, "Skipping unavailable LED gpio %d (%s)\n",
+					template->gpio, template->name);
+			return 0;
+		}
+		if (template->active_low)
+			flags |= GPIOF_ACTIVE_LOW;
+		ret = devm_gpio_request_one(parent, template->gpio, flags,
+									template->name);
+		if (ret < 0)
+			return ret;
+		led_dat->gpiod = gpio_to_desc(template->gpio);
+		if (!led_dat->gpiod)
+			return -EINVAL;
+	}
+	led_dat->cdev.name = template->name;
 	led_dat->cdev.default_trigger = template->default_trigger;
 	led_dat->can_sleep = gpiod_cansleep(led_dat->gpiod);
 	if (!led_dat->can_sleep)
@@ -96,7 +116,8 @@ static int create_gpio_led(const struct gpio_led *template,
 	} else {
 		state = (template->default_state == LEDS_GPIO_DEFSTATE_ON);
 	}
-	led_dat->cdev.brightness = state ? LED_FULL : LED_OFF;
+	led_dat->cdev.brightness = state;
+	led_dat->cdev.max_brightness = 1;
 	if (!template->retain_state_suspended)
 		led_dat->cdev.flags |= LED_CORE_SUSPENDRESUME;
 	if (template->panic_indicator)
@@ -125,6 +146,12 @@ struct gpio_leds_priv {
 	struct gpio_led_data leds[];
 };
 
+static inline int sizeof_gpio_leds_priv(int num_leds)
+{
+	return sizeof(struct gpio_leds_priv) +
+			(sizeof(struct gpio_led_data) * num_leds);
+}
+
 static struct gpio_leds_priv *gpio_leds_create(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -143,7 +170,15 @@ static struct gpio_leds_priv *gpio_leds_create(struct platform_device *pdev)
 	device_for_each_child_node(dev, child) {
 		struct gpio_led_data *led_dat = &priv->leds[priv->num_leds];
 		struct gpio_led led = {};
-		const char *state = NULL;
+
+		struct device_node *np = to_of_node(child);
+		ret = fwnode_property_read_string(child, "label", &led.name);
+		if (ret && IS_ENABLED(CONFIG_OF) && np)
+			led.name = np->name;
+		if (!led.name) {
+			fwnode_handle_put(child);
+			return ERR_PTR(-EINVAL);
+		}
 
 		/*
 		 * Acquire gpiod from DT with uninitialized label, which
@@ -151,24 +186,18 @@ static struct gpio_leds_priv *gpio_leds_create(struct platform_device *pdev)
 		 * Only then the final LED name is known.
 		 */
 		led.gpiod = devm_fwnode_get_gpiod_from_child(dev, NULL, child,
-							     GPIOD_ASIS,
-							     NULL);
+							     GPIOD_ASIS,led.name);
 		if (IS_ERR(led.gpiod)) {
 			fwnode_handle_put(child);
 			return ERR_CAST(led.gpiod);
 		}
 
+		fwnode_property_read_string(child, "linux,default-trigger",
+						&led.default_trigger);
+
 		led_dat->gpiod = led.gpiod;
 
-		if (!fwnode_property_read_string(child, "default-state",
-						 &state)) {
-			if (!strcmp(state, "keep"))
-				led.default_state = LEDS_GPIO_DEFSTATE_KEEP;
-			else if (!strcmp(state, "on"))
-				led.default_state = LEDS_GPIO_DEFSTATE_ON;
-			else
-				led.default_state = LEDS_GPIO_DEFSTATE_OFF;
-		}
+		led.default_state = led_init_default_state_get(child);
 
 		if (fwnode_property_present(child, "retain-state-suspended"))
 			led.retain_state_suspended = 1;

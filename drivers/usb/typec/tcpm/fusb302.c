@@ -152,7 +152,7 @@ static void _fusb302_log(struct fusb302_chip *chip, const char *fmt,
 
 	if (fusb302_log_full(chip)) {
 		chip->logbuffer_head = max(chip->logbuffer_head - 1, 0);
-		strlcpy(tmpbuffer, "overflow", sizeof(tmpbuffer));
+		strscpy(tmpbuffer, "overflow", sizeof(tmpbuffer));
 	}
 
 	if (chip->logbuffer_head < 0 ||
@@ -214,8 +214,9 @@ static void fusb302_debugfs_init(struct fusb302_chip *chip)
 
 	mutex_init(&chip->logbuffer_lock);
 	snprintf(name, NAME_MAX, "fusb302-%s", dev_name(chip->dev));
-	chip->dentry = debugfs_create_file(name, S_IFREG | 0444, usb_debug_root,
-					   chip, &fusb302_debug_fops);
+	chip->dentry = debugfs_create_dir(name, usb_debug_root);
+	debugfs_create_file("log", S_IFREG | 0444, chip->dentry, chip,
+			    &fusb302_debug_fops);
 }
 
 static void fusb302_debugfs_exit(struct fusb302_chip *chip)
@@ -387,6 +388,14 @@ static int fusb302_set_power_mode(struct fusb302_chip *chip, u8 power_mode)
 	ret = fusb302_i2c_write(chip, FUSB_REG_POWER, power_mode);
 
 	return ret;
+}
+
+static int fusb302_rx_fifo_is_empty(struct fusb302_chip *chip)
+{
+	u8 data;
+
+	return (fusb302_i2c_read(chip, FUSB_REG_STATUS1, &data) > 0) &&
+		(data & FUSB_REG_STATUS1_RX_EMPTY);
 }
 
 static int tcpm_init(struct tcpc_dev *dev)
@@ -1342,6 +1351,8 @@ static int fusb302_handle_togdone_src(struct fusb302_chip *chip,
 	} else if (cc2 == TYPEC_CC_RD &&
 		    (cc1 == TYPEC_CC_OPEN || cc1 == TYPEC_CC_RA)) {
 		cc_polarity = TYPEC_POLARITY_CC2;
+	} else if (cc1 == TYPEC_CC_RA && cc2 == TYPEC_CC_RA) {
+		cc_polarity = TYPEC_POLARITY_CC2;
 	} else {
 		fusb302_log(chip, "unexpected CC status cc1=%s, cc2=%s, restarting toggling",
 			    typec_cc_status_name[cc1],
@@ -1592,12 +1603,7 @@ static void fusb302_irq_work(struct kthread_work *work)
 
 	if (interrupta & FUSB_REG_INTERRUPTA_TX_SUCCESS) {
 		fusb302_log(chip, "IRQ: PD tx success");
-		ret = fusb302_pd_read_message(chip, &pd_msg);
-		if (ret < 0) {
-			fusb302_log(chip,
-				    "cannot read in PD message, ret=%d", ret);
-			goto done;
-		}
+		tcpm_pd_transmit_complete(chip->tcpm_port, TCPC_TX_SUCCESS);
 	}
 
 	if (interrupta & FUSB_REG_INTERRUPTA_HARDRESET) {
@@ -1612,11 +1618,15 @@ static void fusb302_irq_work(struct kthread_work *work)
 
 	if (interruptb & FUSB_REG_INTERRUPTB_GCRCSENT) {
 		fusb302_log(chip, "IRQ: PD sent good CRC");
-		ret = fusb302_pd_read_message(chip, &pd_msg);
-		if (ret < 0) {
-			fusb302_log(chip,
-				    "cannot read in PD message, ret=%d", ret);
-			goto done;
+
+		while (!fusb302_rx_fifo_is_empty(chip)) {
+			memset(&pd_msg, 0, sizeof(struct pd_message));
+			ret = fusb302_pd_read_message(chip, &pd_msg);
+			if (ret < 0) {
+				fusb302_log(chip,
+					    "cannot read in PD message, ret=%d", ret);
+				goto done;
+			}
 		}
 	}
 done:
@@ -1707,8 +1717,8 @@ static int fusb302_probe(struct i2c_client *client,
 	 */
 	if (device_property_read_string(dev, "linux,extcon-name", &name) == 0) {
 		chip->extcon = extcon_get_extcon_dev(name);
-		if (!chip->extcon)
-			return -EPROBE_DEFER;
+		if (IS_ERR(chip->extcon))
+			return PTR_ERR(chip->extcon);
 	}
 
 	chip->vbus = devm_regulator_get(chip->dev, "vbus");
@@ -1747,9 +1757,8 @@ static int fusb302_probe(struct i2c_client *client,
 	chip->tcpm_port = tcpm_register_port(&client->dev, &chip->tcpc_dev);
 	if (IS_ERR(chip->tcpm_port)) {
 		fwnode_handle_put(chip->tcpc_dev.fwnode);
-		ret = PTR_ERR(chip->tcpm_port);
-		if (ret != -EPROBE_DEFER)
-			dev_err(dev, "cannot register tcpm port, ret=%d", ret);
+		ret = dev_err_probe(dev, PTR_ERR(chip->tcpm_port),
+				    "cannot register tcpm port\n");
 		goto destroy_workqueue;
 	}
 
@@ -1775,7 +1784,7 @@ destroy_workqueue:
 	return ret;
 }
 
-static int fusb302_remove(struct i2c_client *client)
+static void fusb302_remove(struct i2c_client *client)
 {
 	struct fusb302_chip *chip = i2c_get_clientdata(client);
 
@@ -1787,8 +1796,6 @@ static int fusb302_remove(struct i2c_client *client)
 	fwnode_handle_put(chip->tcpc_dev.fwnode);
 	destroy_workqueue(chip->wq);
 	fusb302_debugfs_exit(chip);
-
-	return 0;
 }
 
 static int fusb302_pm_suspend(struct device *dev)

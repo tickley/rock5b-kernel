@@ -1114,20 +1114,13 @@ err_irq_gpio_req:
 static int fts_get_dt_coords(struct device *dev, char *name,
                              struct fts_ts_platform_data *pdata)
 {
-    //int ret = 0;
-    //u32 coords[FTS_COORDS_ARR_SIZE] = { 0 };
-    //struct property *prop;
-    //struct device_node *np = dev->of_node;
-    //int coords_size;
+    int ret = 0;
+    u32 coords[FTS_COORDS_ARR_SIZE] = { 0 };
+    struct property *prop;
+    struct device_node *np = dev->of_node;
+    int coords_size;
 
-	pdata->x_min = FTS_X_MIN_DISPLAY_DEFAULT;
-	pdata->y_min = FTS_Y_MIN_DISPLAY_DEFAULT;
-	pdata->x_max = FTS_X_MAX_DISPLAY_DEFAULT;
-	pdata->y_max = FTS_Y_MAX_DISPLAY_DEFAULT;
-	
-	
-	
-    /*prop = of_find_property(np, name, NULL);
+    prop = of_find_property(np, name, NULL);
     if (!prop)
         return -EINVAL;
     if (!prop->value)
@@ -1156,12 +1149,11 @@ static int fts_get_dt_coords(struct device *dev, char *name,
         pdata->y_min = FTS_Y_MIN_DISPLAY_DEFAULT;
         pdata->x_max = FTS_X_MAX_DISPLAY_DEFAULT;
         pdata->y_max = FTS_Y_MAX_DISPLAY_DEFAULT;
-       // return -EINVAL;
+        return -EINVAL;
     }
-*/
-    printk("display x(%d %d) y(%d %d)", pdata->x_min, pdata->x_max, pdata->y_min, pdata->y_max);
-    /*FTS_INFO("display x(%d %d) y(%d %d)", pdata->x_min, pdata->x_max,
-             pdata->y_min, pdata->y_max);*/
+
+    FTS_INFO("display x(%d %d) y(%d %d)", pdata->x_min, pdata->x_max,
+             pdata->y_min, pdata->y_max);
     return 0;
 }
 
@@ -1532,7 +1524,7 @@ err_input_init:
 *  Output:
 *  Return:
 *****************************************************************************/
-static int fts_ts_remove(struct i2c_client *client)
+static void fts_ts_remove(struct i2c_client *client)
 {
     struct fts_ts_data *ts_data = i2c_get_clientdata(client);
 
@@ -1601,7 +1593,6 @@ static int fts_ts_remove(struct i2c_client *client)
     devm_kfree(&client->dev, ts_data);
 
     FTS_FUNC_EXIT();
-    return 0;
 }
 
 /*****************************************************************************

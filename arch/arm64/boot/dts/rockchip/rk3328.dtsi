@@ -23,19 +23,19 @@
 	#size-cells = <2>;
 
 	aliases {
-		ethernet0 = &gmac2io;
-		ethernet1 = &gmac2phy;
 		gpio0 = &gpio0;
 		gpio1 = &gpio1;
 		gpio2 = &gpio2;
 		gpio3 = &gpio3;
+		serial0 = &uart0;
+		serial1 = &uart1;
+		serial2 = &uart2;
 		i2c0 = &i2c0;
 		i2c1 = &i2c1;
 		i2c2 = &i2c2;
 		i2c3 = &i2c3;
-		serial0 = &uart0;
-		serial1 = &uart1;
-		serial2 = &uart2;
+		ethernet0 = &gmac2io;
+		ethernet1 = &gmac2phy;
 	};
 
 	cpus {
@@ -112,7 +112,7 @@
 		};
 	};
 
-	cpu0_opp_table: cpu0-opp-table {
+	cpu0_opp_table: opp-table-0 {
 		compatible = "operating-points-v2";
 		opp-shared;
 
@@ -123,7 +123,7 @@
 			11  254   1
 		>;
 		nvmem-cells = <&cpu_leakage>;
-		nvmem-cell-names = "cpu_leakage";
+		nvmem-cell-names = "leakage";
 
 		opp-408000000 {
 			opp-hz = /bits/ 64 <408000000>;
@@ -203,7 +203,7 @@
 			11  254   1
 		>;
 		nvmem-cells = <&logic_leakage>;
-		nvmem-cell-names = "ddr_leakage";
+		nvmem-cell-names = "leakage";
 
 		opp-400000000 {
 			opp-hz = /bits/ 64 <400000000>;
@@ -258,6 +258,7 @@
 		simple-audio-card,format = "i2s";
 		simple-audio-card,mclk-fs = <256>;
 		simple-audio-card,name = "rockchip,rk3328";
+		status = "disabled";
 
 		simple-audio-card,cpu {
 			sound-dai = <&i2s1>;
@@ -308,6 +309,7 @@
 		simple-audio-card,format = "i2s";
 		simple-audio-card,mclk-fs = <128>;
 		simple-audio-card,name = "rockchip,hdmi";
+		status = "disabled";
 
 		simple-audio-card,cpu {
 			sound-dai = <&i2s0>;
@@ -508,7 +510,7 @@
 			status = "disabled";
 		};
 
-		grf_gpio: grf-gpio {
+		grf_gpio: gpio {
 			compatible = "rockchip,rk3328-grf-gpio";
 			gpio-controller;
 			#gpio-cells = <2>;
@@ -519,10 +521,10 @@
 			#power-domain-cells = <1>;
 			#address-cells = <1>;
 			#size-cells = <0>;
-			status = "okay";
 
 			power-domain@RK3328_PD_HEVC {
 				reg = <RK3328_PD_HEVC>;
+				#power-domain-cells = <0>;
 			};
 			power-domain@RK3328_PD_VIDEO {
 				reg = <RK3328_PD_VIDEO>;
@@ -531,12 +533,13 @@
 					 <&cru SCLK_VDEC_CABAC>,
 					 <&cru SCLK_VDEC_CORE>;
 				pm_qos = <&qos_rkvdec_r>, <&qos_rkvdec_w>;
+				#power-domain-cells = <0>;
 			};
 			power-domain@RK3328_PD_VPU {
 				reg = <RK3328_PD_VPU>;
-				clocks = <&cru ACLK_VPU>,
-					 <&cru HCLK_VPU>;
+				clocks = <&cru ACLK_VPU>, <&cru HCLK_VPU>;
 				pm_qos = <&qos_vpu>;
+				#power-domain-cells = <0>;
 			};
 		};
 
@@ -550,57 +553,6 @@
 			mode-normal = <BOOT_NORMAL>;
 			mode-recovery = <BOOT_RECOVERY>;
 			mode-ums = <BOOT_UMS>;
-		};
-	};
-
-	thermal-zones {
-		soc_thermal: soc-thermal {
-			polling-delay-passive = <20>; /* milliseconds */
-			polling-delay = <1000>; /* milliseconds */
-			sustainable-power = <1000>; /* milliwatts */
-
-			thermal-sensors = <&tsadc 0>;
-
-			trips {
-				threshold: trip-point-0 {
-					temperature = <70000>; /* millicelsius */
-					hysteresis = <2000>; /* millicelsius */
-					type = "passive";
-				};
-				target: trip-point-1 {
-					temperature = <85000>; /* millicelsius */
-					hysteresis = <2000>; /* millicelsius */
-					type = "passive";
-				};
-				soc_crit: soc-crit {
-					temperature = <115000>; /* millicelsius */
-					hysteresis = <2000>; /* millicelsius */
-					type = "critical";
-				};
-			};
-
-			cooling-maps {
-				map0 {
-					trip = <&target>;
-					cooling-device = <&cpu0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
-					contribution = <4096>;
-				};
-				map1 {
-					trip = <&target>;
-					cooling-device = <&gpu THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
-					contribution = <4096>;
-				};
-				map2 {
-					trip = <&target>;
-					cooling-device = <&rkvdec THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
-					contribution = <1024>;
-				};
-				map3 {
-					trip = <&target>;
-					cooling-device = <&dmc THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
-					contribution = <1024>;
-				};
-			};
 		};
 	};
 
@@ -722,7 +674,7 @@
 	};
 
 	wdt: watchdog@ff1a0000 {
-		compatible = "snps,dw-wdt";
+		compatible = "rockchip,rk3328-wdt", "snps,dw-wdt";
 		reg = <0x0 0xff1a0000 0x0 0x100>;
 		interrupts = <GIC_SPI 40 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&cru PCLK_BUS_PRE>;
@@ -786,6 +738,58 @@
 		clocks = <&cru ACLK_DMAC>;
 		clock-names = "apb_pclk";
 		#dma-cells = <1>;
+	};
+
+	thermal-zones {
+		soc_thermal: soc-thermal {
+			polling-delay-passive = <20>; /* milliseconds */
+			polling-delay = <1000>; /* milliseconds */
+			sustainable-power = <1000>; /* milliwatts */
+
+			thermal-sensors = <&tsadc 0>;
+
+			trips {
+				threshold: trip-point0 {
+					temperature = <70000>; /* millicelsius */
+					hysteresis = <2000>; /* millicelsius */
+					type = "passive";
+				};
+				target: trip-point1 {
+					temperature = <85000>; /* millicelsius */
+					hysteresis = <2000>; /* millicelsius */
+					type = "passive";
+				};
+				soc_crit: soc-crit {
+					temperature = <115000>; /* millicelsius */
+					hysteresis = <2000>; /* millicelsius */
+					type = "critical";
+				};
+			};
+
+			cooling-maps {
+				map0 {
+					trip = <&target>;
+					cooling-device = <&cpu0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+					contribution = <4096>;
+				};
+				map1 {
+					trip = <&target>;
+					cooling-device = <&gpu THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+					contribution = <4096>;
+				};
+				map2 {
+					trip = <&target>;
+					cooling-device = <&rkvdec THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+					contribution = <1024>;
+				};
+				map3 {
+					trip = <&target>;
+					cooling-device = <&dmc THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+					contribution = <1024>;
+				};
+			};
+		};
+
 	};
 
 	tsadc: tsadc@ff250000 {
@@ -887,7 +891,7 @@
 			11  254   1
 		>;
 		nvmem-cells = <&logic_leakage>;
-		nvmem-cell-names = "gpu_leakage";
+		nvmem-cell-names = "leakage";
 
 		opp-200000000 {
 			opp-hz = /bits/ 64 <200000000>;
@@ -913,6 +917,16 @@
 			opp-microvolt-L0 = <1150000>;
 			opp-microvolt-L1 = <1100000>;
 		};
+	};
+
+	h265e_mmu: iommu@ff330200 {
+		compatible = "rockchip,iommu";
+		reg = <0x0 0xff330200 0 0x100>;
+		interrupts = <GIC_SPI 96 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&cru ACLK_H265>, <&cru PCLK_H265>;
+		clock-names = "aclk", "iface";
+		#iommu-cells = <0>;
+		status = "disabled";
 	};
 
 	mpp_srv: mpp-srv {
@@ -976,7 +990,6 @@
 		compatible = "rockchip,iommu";
 		reg = <0x0 0xff350800 0x0 0x40>;
 		interrupts = <GIC_SPI 11 IRQ_TYPE_LEVEL_HIGH>;
-		interrupt-names = "vpu_mmu";
 		clocks = <&cru ACLK_VPU>, <&cru HCLK_VPU>;
 		clock-names = "aclk", "iface";
 		#iommu-cells = <0>;
@@ -1045,7 +1058,7 @@
 			11  254   1
 		>;
 		nvmem-cells = <&logic_leakage>;
-		nvmem-cell-names = "rkvdec_leakage";
+		nvmem-cell-names = "leakage";
 
 		opp-100000000 {
 			opp-hz = /bits/ 64 <100000000>;
@@ -1067,11 +1080,25 @@
 		};
 	};
 
-	rkvdec_mmu: iommu@ff360480 {
+	vdec: video-codec@ff360000 {
+		compatible = "rockchip,rk3328-vdec", "rockchip,rk3399-vdec";
+		reg = <0x0 0xff360000 0x0 0x480>;
+		interrupts = <GIC_SPI 7 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&cru ACLK_RKVDEC>, <&cru HCLK_RKVDEC>,
+			 <&cru SCLK_VDEC_CABAC>, <&cru SCLK_VDEC_CORE>;
+		clock-names = "axi", "ahb", "cabac", "core";
+		assigned-clocks = <&cru ACLK_RKVDEC>, <&cru SCLK_VDEC_CABAC>,
+				  <&cru SCLK_VDEC_CORE>;
+		assigned-clock-rates = <400000000>, <400000000>, <300000000>;
+		iommus = <&vdec_mmu>;
+		power-domains = <&power RK3328_PD_VIDEO>;
+		status = "disabled";
+	};
+
+	rkvdec_mmu: vdec_mmu: iommu@ff360480 {
 		compatible = "rockchip,iommu";
 		reg = <0x0 0xff360480 0x0 0x40>, <0x0 0xff3604c0 0x0 0x40>;
 		interrupts = <GIC_SPI 74 IRQ_TYPE_LEVEL_HIGH>;
-		interrupt-names = "rkvdec_mmu";
 		clocks = <&cru ACLK_RKVDEC>, <&cru HCLK_RKVDEC>;
 		clock-names = "aclk", "iface";
 		#iommu-cells = <0>;
@@ -1137,7 +1164,6 @@
 		compatible = "rockchip,iommu";
 		reg = <0x0 0xff373f00 0x0 0x100>;
 		interrupts = <GIC_SPI 32 IRQ_TYPE_LEVEL_HIGH>;
-		interrupt-names = "vop_mmu";
 		clocks = <&cru ACLK_VOP>, <&cru HCLK_VOP>;
 		clock-names = "aclk", "iface";
 		#iommu-cells = <0>;
@@ -1311,7 +1337,7 @@
 		#address-cells = <1>;
 		#size-cells = <1>;
 
-		u2phy: usb2-phy@100 {
+		u2phy: usb2phy@100 {
 			compatible = "rockchip,rk3328-usb2phy";
 			reg = <0x100 0x10>;
 			clocks = <&xin24m>;
@@ -1452,8 +1478,8 @@
 			      "mac_clk_tx", "clk_mac_ref",
 			      "aclk_mac", "pclk_mac",
 			      "clk_macphy";
-		resets = <&cru SRST_GMAC2PHY_A>, <&cru SRST_MACPHY>;
-		reset-names = "stmmaceth", "mac-phy";
+		resets = <&cru SRST_GMAC2PHY_A>;
+		reset-names = "stmmaceth";
 		phy-mode = "rmii";
 		phy-handle = <&phy>;
 		status = "disabled";
@@ -1528,7 +1554,7 @@
 	};
 
 	usbdrd3: usbdrd {
-		compatible = "rockchip,rk3328-dwc3", "snps,dwc3";
+		compatible = "rockchip,rk3328-dwc3";
 		clocks = <&cru SCLK_USB3OTG_REF>, <&cru SCLK_USB3OTG_SUSPEND>,
 			 <&cru ACLK_USB3OTG>;
 		clock-names = "ref_clk", "suspend_clk",
@@ -1538,7 +1564,7 @@
 		ranges;
 		status = "disabled";
 
-		usbdrd_dwc3: dwc3@ff600000 {
+		usbdrd_dwc3: usb@ff600000 {
 			compatible = "snps,dwc3";
 			reg = <0x0 0xff600000 0x0 0x100000>;
 			interrupts = <GIC_SPI 67 IRQ_TYPE_LEVEL_HIGH>;

@@ -636,7 +636,7 @@ static int gt1x_ts_probe(struct i2c_client *client, const struct i2c_device_id *
  * @client: i2c device struct.
  * Return  0: succeed, -1: failed.
  */
-static int gt1x_ts_remove(struct i2c_client *client)
+static void gt1x_ts_remove(struct i2c_client *client)
 {
 	GTP_DEBUG_FUNC();
 	GTP_DEBUG("GTP driver removing...");
@@ -651,8 +651,6 @@ static int gt1x_ts_remove(struct i2c_client *client)
 	if (gt1x_wq) {
 		destroy_workqueue(gt1x_wq);
 	}
-
-	return 0;
 }
 
 #if defined(CONFIG_FB)
@@ -716,15 +714,24 @@ static int gtp_fb_notifier_callback(struct notifier_block *noti, unsigned long e
 	return 0;
 }
 #elif defined(CONFIG_HAS_EARLYSUSPEND)
+static void gt1x_resume_workfn(struct work_struct *work);
+static DECLARE_WORK(gt1x_resume_work, gt1x_resume_workfn);
+
+static void gt1x_resume_workfn(struct work_struct *work)
+{
+	gt1x_resume();
+}
+
 /* earlysuspend module the suspend/resume procedure */
 static void gt1x_ts_early_suspend(struct early_suspend *h)
 {
+	flush_work(&gt1x_resume_work);
 	gt1x_suspend();
 }
 
 static void gt1x_ts_late_resume(struct early_suspend *h)
 {
-	gt1x_resume();
+	queue_work(gt1x_wq, &gt1x_resume_work);
 }
 
 static struct early_suspend gt1x_early_suspend = {
@@ -732,9 +739,7 @@ static struct early_suspend gt1x_early_suspend = {
 	.suspend = gt1x_ts_early_suspend,
 	.resume = gt1x_ts_late_resume,
 };
-#endif
-
-#ifdef CONFIG_PM
+#elif defined(CONFIG_PM)
 /**
  * gt1x_ts_suspend - i2c suspend callback function.
  * @dev: i2c device.
@@ -807,7 +812,7 @@ static struct i2c_driver gt1x_ts_driver = {
 #ifdef GTP_CONFIG_OF
 		   .of_match_table = gt1x_match_table,
 #endif
-#if !defined(CONFIG_FB) && defined(CONFIG_PM)
+#if !defined(CONFIG_FB) && !defined(CONFIG_HAS_EARLYSUSPEND) && defined(CONFIG_PM)
 		   .pm = &gt1x_ts_pm_ops,
 #endif
 		   .probe_type = PROBE_PREFER_ASYNCHRONOUS,

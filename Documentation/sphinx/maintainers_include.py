@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-2.0
 # -*- coding: utf-8; mode: python -*-
 # pylint: disable=R0903, C0330, R0914, R0912, E0401
@@ -61,8 +61,6 @@ class MaintainersInclude(Include):
         field_content = ""
 
         for line in open(path):
-            if sys.version_info.major == 2:
-                line = unicode(line, 'utf-8')
             # Have we reached the end of the preformatted Descriptions text?
             if descriptions and line.startswith('Maintainers'):
                 descriptions = False

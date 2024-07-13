@@ -105,6 +105,24 @@
 		};
 	};
 
+	edp0_sound: edp0-sound {
+		status = "disabled";
+		compatible = "rockchip,hdmi";
+		rockchip,mclk-fs = <128>;
+		rockchip,card-name = "rockchip-edp0";
+		rockchip,cpu = <&i2s5_8ch>;
+		rockchip,codec = <&edp0 0>;
+	};
+
+	edp1_sound: edp1-sound {
+		status = "disabled";
+		compatible = "rockchip,hdmi";
+		rockchip,mclk-fs = <128>;
+		rockchip,card-name = "rockchip-edp1";
+		rockchip,cpu = <&i2s6_8ch>;
+		rockchip,codec = <&edp1 0>;
+	};
+
 	hdmi0_sound: hdmi0-sound {
 		status = "disabled";
 		compatible = "rockchip,hdmi";
@@ -233,6 +251,10 @@
 		regulator-max-microvolt = <5000000>;
 		vin-supply = <&vcc5v0_usbdcin>;
 	};
+};
+
+&av1d {
+	status = "okay";
 };
 
 &av1d_mmu {
@@ -1230,6 +1252,7 @@
 
 &vop {
 	status = "okay";
+	vop-supply = <&vdd_log_s0>;
 };
 
 &vop_mmu {

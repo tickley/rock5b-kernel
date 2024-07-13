@@ -16,7 +16,7 @@
  * GNU General Public License for more details.
  */
 
-#include <stdarg.h>
+#include <linux/stdarg.h>
 #include <linux/cpu.h>
 #include <linux/cpu_pm.h>
 #include <linux/module.h>

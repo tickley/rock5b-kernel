@@ -258,6 +258,10 @@
 	};
 };
 
+&av1d {
+	status = "okay";
+};
+
 &av1d_mmu {
 	status = "okay";
 };
@@ -1219,6 +1223,7 @@
 
 &vop {
 	status = "okay";
+	vop-supply = <&vdd_log_s0>;
 };
 
 &vop_mmu {
