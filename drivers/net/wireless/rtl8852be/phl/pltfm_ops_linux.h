@@ -215,7 +215,7 @@ static inline void *_os_pkt_buf_unmap_rx(void *d, _dma bus_addr_l, _dma bus_addr
 	if (g_pcie_reserved_mem_dev)
 		pdev->dev.dma_mask = NULL;
 #endif
-	pci_unmap_single(pdev, bus_addr_l, buf_sz, PCI_DMA_FROMDEVICE);
+	dma_unmap_single(&hwdev->dev, bus_addr_l, buf_sz, PCI_DMA_FROMDEVICE);
 #endif
 
 #ifdef RTW_CORE_RECORD
@@ -237,7 +237,7 @@ static inline void *_os_pkt_buf_map_rx(void *d, _dma *bus_addr_l, _dma *bus_addr
 	if (g_pcie_reserved_mem_dev)
 		pdev->dev.dma_mask = NULL;
 #endif
-	*bus_addr_l = pci_map_single(pdev, skb->data, buf_sz, PCI_DMA_FROMDEVICE);
+	*bus_addr_l = dma_map_single(pdev, skb->data, buf_sz, PCI_DMA_FROMDEVICE);
 	/* *bus_addr_h = NULL;*/
 #endif /*CONFIG_PCI_HCI*/
 
@@ -312,7 +312,7 @@ static inline void *_os_pkt_buf_alloc_rx(void *d, _dma *bus_addr_l,
 		pdev->dev.dma_mask = NULL;
 #endif
 	if (cache)
-		*bus_addr_l = pci_map_single(pdev, skb->data,
+		*bus_addr_l = dma_map_single(pdev, skb->data,
 			rxbuf_size, PCI_DMA_FROMDEVICE);
 	else
 		*bus_addr_l = *(dma_addr_t *)skb->cb;
@@ -339,7 +339,7 @@ static inline void _os_pkt_buf_free_rx(void *d, u8 *vir_addr, _dma bus_addr_l,
 		pdev->dev.dma_mask = NULL;
 #endif
 	if (cache)
-		pci_unmap_single(pdev, bus_addr_l, buf_sz, PCI_DMA_FROMDEVICE);
+		dma_unmap_single(&hwdev->dev, bus_addr_l, buf_sz, PCI_DMA_FROMDEVICE);
 
 	if (!cache)
 		_os_free_noncashe_skb(pdev, skb, buf_sz);

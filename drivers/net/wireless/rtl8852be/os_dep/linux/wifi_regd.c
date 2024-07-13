@@ -679,34 +679,27 @@ int rtw_regd_init(struct wiphy *wiphy)
 {
 	struct rtw_wiphy_data *wiphy_data = rtw_wiphy_priv(wiphy);
 
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 9, 0))
-	wiphy->reg_notifier = rtw_reg_notifier_return;
-#else
-	wiphy->reg_notifier = rtw_reg_notifier;
-#endif
+	struct async_regd_change_evt *evt;
 
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 14, 0))
-	wiphy->flags &= ~WIPHY_FLAG_STRICT_REGULATORY;
-	wiphy->flags &= ~WIPHY_FLAG_DISABLE_BEACON_HINTS;
-#else
-	wiphy->regulatory_flags &= ~REGULATORY_STRICT_REG;
-	wiphy->regulatory_flags &= ~REGULATORY_DISABLE_BEACON_HINTS;
-#endif
+	evt = rtw_malloc(sizeof(*evt));
+	if (!evt) {
+		rtw_free_get_chplan_resp(chplan);
+		return _FAIL;
+	}
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 19, 0))
-	wiphy->regulatory_flags |= REGULATORY_IGNORE_STALE_KICKOFF;
-#endif
+	_rtw_init_listhead(&evt->list);
+	evt->wiphy = wiphy;
+	evt->chplan = chplan;
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 0, 0))
-	if (rtw_regd_is_wiphy_self_managed(wiphy))
-		wiphy->regulatory_flags |= REGULATORY_WIPHY_SELF_MANAGED;
-#endif
+	_rtw_mutex_lock_interruptible(&wiphy_data->async_regd_change_mutex);
 
-	_rtw_init_listhead(&wiphy_data->async_regd_change_list);
-	_rtw_mutex_init(&wiphy_data->async_regd_change_mutex);
-	_init_workitem(&wiphy_data->async_regd_change_work, async_regd_change_work_hdl, NULL);
+	rtw_list_insert_tail(&evt->list, &wiphy_data->async_regd_change_list);
 
-	return 0;
+	_rtw_mutex_unlock(&wiphy_data->async_regd_change_mutex);
+
+	_set_workitem(&wiphy_data->async_regd_change_work);
+
+	return _SUCCESS;
 }
 
 static void rtw_regd_async_regd_change_list_free(struct wiphy *wiphy)

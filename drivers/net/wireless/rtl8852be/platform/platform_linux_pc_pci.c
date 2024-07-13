@@ -27,7 +27,7 @@ void pci_cache_wback(struct pci_dev *hwdev,
 		if (g_pcie_reserved_mem_dev)
 			hwdev->dev.dma_mask = NULL;
 #endif
-	  	pci_dma_sync_single_for_device(hwdev, *bus_addr, size,
+	  	dma_sync_single_for_device(&hwdev->dev, *bus_addr, size,
 					direction);
 	} else
 		RTW_ERR("pcie hwdev handle or bus addr is NULL!\n");
@@ -40,7 +40,7 @@ void pci_cache_inv(struct pci_dev *hwdev,
 		if (g_pcie_reserved_mem_dev)
 			hwdev->dev.dma_mask = NULL;
 #endif
-		pci_dma_sync_single_for_cpu(hwdev, *bus_addr, size, direction);
+		dma_sync_single_for_cpu(&hwdev->dev, *bus_addr, size, direction);
 	} else
 		RTW_ERR("pcie hwdev handle or bus addr is NULL!\n");
 }
@@ -53,7 +53,7 @@ void pci_get_bus_addr(struct pci_dev *hwdev,
 		if (g_pcie_reserved_mem_dev)
 			hwdev->dev.dma_mask = NULL;
 #endif
-		*bus_addr = pci_map_single(hwdev, vir_addr, size, direction);
+		*bus_addr = dma_map_single(&hwdev->dev, vir_addr, size, direction);
 	} else {
 		RTW_ERR("pcie hwdev handle is NULL!\n");
 		*bus_addr = (dma_addr_t)virt_to_phys(vir_addr);
@@ -68,7 +68,7 @@ void pci_unmap_bus_addr(struct pci_dev *hwdev,
 		if (g_pcie_reserved_mem_dev)
 			hwdev->dev.dma_mask = NULL;
 #endif
-		pci_unmap_single(hwdev, *bus_addr, size, direction);
+		dma_unmap_single(&hwdev->dev, *bus_addr, size, direction);
 	} else
 		RTW_ERR("pcie hwdev handle or bus addr is NULL!\n");
 }
