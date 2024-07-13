@@ -8,7 +8,7 @@
 	compatible = "radxa,rock-5b", "rockchip,rk3588";
 
 	camera_pwdn_gpio: camera-pwdn-gpio {
-		status = "disabled";
+		status = "okay";
 		compatible = "regulator-fixed";
 		regulator-name = "camera_pwdn_gpio";
 		regulator-always-on;
@@ -20,19 +20,42 @@
 	};
 
 	clk_cam_24m: external-camera-clock-24m {
-		status = "disabled";
+		status = "okay";
 		compatible = "fixed-clock";
 		clock-frequency = <24000000>;
 		clock-output-names = "clk_cam_24m";
 		#clock-cells = <0>;
 	};
+
+	cam_ircut0: cam_ircut {
+		status = "okay";
+		compatible = "rockchip,ircut";
+		ircut-open-gpios = <&gpio1 RK_PB6 GPIO_ACTIVE_HIGH>;
+		ircut-close-gpios  = <&gpio1 RK_PA7 GPIO_ACTIVE_HIGH>;
+		rockchip,camera-module-index = <0>;
+		rockchip,camera-module-facing = "back";
+	};
+	fan: pwm-fan {
+		status = "okay";
+		compatible = "pwm-fan";
+		#cooling-cells = <2>;
+		pwms = <&pwm1 0 10000 0>;
+		cooling-levels = <0 128 130 132 135 150>;
+		rockchip,temp-trips = <
+			50000	1
+			55000	2
+			60000	3
+			65000	4
+			70000	5
+		>;
+	};
 };
 
 &i2c3 {
-	status = "disabled";
+	status = "okay";
 
 	imx415: imx415@1a {
-		status = "disabled";
+		status = "okay";
 		compatible = "sony,imx415";
 		reg = <0x1a>;
 		clocks = <&cru CLK_MIPI_CAMARAOUT_M3>;
@@ -40,8 +63,9 @@
 		pinctrl-names = "default";
 		pinctrl-0 = <&mipim0_camera3_clk>;
 		power-domains = <&power RK3588_PD_VI>;
-		pwdn-gpios = <&gpio1 RK_PB0 GPIO_ACTIVE_HIGH>;
-		reset-gpios = <&gpio4 RK_PA0 GPIO_ACTIVE_LOW>;
+		pwdn-gpios = <&gpio4 RK_PA0 GPIO_ACTIVE_HIGH>;
+		reset-gpios = <&gpio1 RK_PB0 GPIO_ACTIVE_LOW>;
+		lens-focus = <&cam_ircut0>;
 		rockchip,camera-module-index = <0>;
 		rockchip,camera-module-facing = "back";
 		rockchip,camera-module-name = "RADXA-CAMERA-4K";
@@ -77,11 +101,11 @@
 };
 
 &csi2_dphy0_hw {
-	status = "disabled";
+	status = "okay";
 };
 
 &csi2_dphy0 {
-	status = "disabled";
+	status = "okay";
 
 	ports {
 		#address-cells = <1>;
@@ -119,7 +143,7 @@
 };
 
 &mipi2_csi2 {
-	status = "disabled";
+	status = "okay";
 
 	ports {
 		#address-cells = <1>;
@@ -150,11 +174,11 @@
 };
 
 &rkcif {
-	status = "disabled";
+	status = "okay";
 };
 
 &rkcif_mipi_lvds2 {
-	status = "disabled";
+	status = "okay";
 
 	port {
 		cif_mipi2_in0: endpoint {
@@ -164,7 +188,7 @@
 };
 
 &rkcif_mipi_lvds2_sditf {
-	status = "disabled";
+	status = "okay";
 
 	port {
 		mipi_lvds2_sditf: endpoint {
@@ -174,19 +198,19 @@
 };
 
 &rkcif_mmu {
-	status = "disabled";
+	status = "okay";
 };
 
 &rkisp0 {
-	status = "disabled";
+	status = "okay";
 };
 
 &isp0_mmu {
-	status = "disabled";
+	status = "okay";
 };
 
 &rkisp0_vir0 {
-	status = "disabled";
+	status = "okay";
 
 	port {
 		#address-cells = <1>;
