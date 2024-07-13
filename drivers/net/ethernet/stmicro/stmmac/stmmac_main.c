@@ -57,12 +57,6 @@
 #define	STMMAC_ALIGN(x)		ALIGN(ALIGN(x, SMP_CACHE_BYTES), 16)
 #define	TSO_MAX_BUFF_SIZE	(SZ_16K - 1)
 
-#define	RTL8211F_PHY_ID		0x001cc916
-#define	RTL8211F_PHY_ID_MASK	0x001fffff
-#define	RTL8211F_PAGE_SELECT	0x1f
-#define	RTL8211F_LCR_ADDR	0x10
-#define	RTL8211F_EEELCR_ADDR	0x11
-
 /* Module parameters */
 #define TX_TIMEO	5000
 static int watchdog = TX_TIMEO;
@@ -744,18 +738,9 @@ int stmmac_init_tstamp_counter(struct stmmac_priv *priv, u32 systime_flags)
 	struct timespec64 now;
 	u32 sec_inc = 0;
 	u64 temp = 0;
-	int ret;
 
 	if (!(priv->dma_cap.time_stamp || priv->dma_cap.atime_stamp))
 		return -EOPNOTSUPP;
-
-	ret = clk_prepare_enable(priv->plat->clk_ptp_ref);
-	if (ret < 0) {
-		netdev_warn(priv->dev,
-			    "failed to enable PTP reference clock: %pe\n",
-			    ERR_PTR(ret));
-		return ret;
-	}
 
 	stmmac_config_hw_tstamping(priv, priv->ptpaddr, systime_flags);
 	priv->systime_flags = systime_flags;
@@ -841,8 +826,8 @@ static void stmmac_mac_flow_ctrl(struct stmmac_priv *priv, u32 duplex)
 {
 	u32 tx_cnt = priv->plat->tx_queues_to_use;
 
-	stmmac_flow_ctrl(priv, priv->hw, duplex, priv->flow_ctrl,
-			priv->pause, tx_cnt);
+	stmmac_flow_ctrl(priv, priv->hw, duplex, priv->flow_ctrl & priv->plat->flow_ctrl,
+			 priv->pause, tx_cnt);
 }
 
 static void stmmac_validate(struct phylink_config *config,
@@ -862,6 +847,8 @@ static void stmmac_validate(struct phylink_config *config,
 	phylink_set(mac_supported, 1000baseT_Half);
 	phylink_set(mac_supported, 1000baseT_Full);
 	phylink_set(mac_supported, 1000baseKX_Full);
+	phylink_set(mac_supported, 100baseT1_Full);
+	phylink_set(mac_supported, 1000baseT1_Full);
 
 	phylink_set(mac_supported, Autoneg);
 	phylink_set(mac_supported, Pause);
@@ -1058,14 +1045,23 @@ static void stmmac_mac_link_up(struct phylink_config *config,
 		ctrl |= priv->hw->link.duplex;
 
 	/* Flow Control operation */
-	if (tx_pause && rx_pause)
-		stmmac_mac_flow_ctrl(priv, duplex);
+	if (rx_pause && tx_pause)
+		priv->flow_ctrl = FLOW_AUTO;
+	else if (rx_pause && !tx_pause)
+		priv->flow_ctrl = FLOW_RX;
+	else if (!rx_pause && tx_pause)
+		priv->flow_ctrl = FLOW_TX;
+	else
+		priv->flow_ctrl = FLOW_OFF;
+
+	stmmac_mac_flow_ctrl(priv, duplex);
 
 	writel(ctrl, priv->ioaddr + MAC_CTRL_REG);
 
 	stmmac_mac_set(priv, priv->ioaddr, true);
 	if (phy && priv->dma_cap.eee) {
-		priv->eee_active = phy_init_eee(phy, 1) >= 0;
+		priv->eee_active =
+			phy_init_eee(phy, !priv->plat->rx_clk_runs_in_lpi) >= 0;
 		priv->eee_enabled = stmmac_eee_init(priv);
 		priv->tx_lpi_enabled = priv->eee_enabled;
 		stmmac_set_eee_pls(priv, priv->hw, true);
@@ -1135,6 +1131,11 @@ static int stmmac_init_phy(struct net_device *dev)
 		int addr = priv->plat->phy_addr;
 		struct phy_device *phydev;
 
+		if (addr < 0) {
+			netdev_err(priv->dev, "no phy found\n");
+			return -ENODEV;
+		}
+
 		phydev = mdiobus_get_phy(priv->mii, addr);
 		if (!phydev) {
 			netdev_err(priv->dev, "no phy at addr %d\n", addr);
@@ -1149,6 +1150,7 @@ static int stmmac_init_phy(struct net_device *dev)
 
 		phylink_ethtool_get_wol(priv->phylink, &wol);
 		device_set_wakeup_capable(priv->device, !!wol.supported);
+		device_set_wakeup_enable(priv->device, !!wol.wolopts);
 	}
 
 	return ret;
@@ -2772,6 +2774,14 @@ static int stmmac_hw_setup(struct net_device *dev, bool ptp_register)
 
 	stmmac_mmc_setup(priv);
 
+	if (ptp_register) {
+		ret = clk_prepare_enable(priv->plat->clk_ptp_ref);
+		if (ret < 0)
+			netdev_warn(priv->dev,
+				    "failed to enable PTP reference clock: %pe\n",
+				    ERR_PTR(ret));
+	}
+
 	ret = stmmac_init_ptp(priv);
 	if (ret == -EOPNOTSUPP)
 		netdev_warn(priv->dev, "PTP not supported by HW\n");
@@ -2928,6 +2938,15 @@ static int stmmac_open(struct net_device *dev)
 		goto init_error;
 	}
 
+	if (priv->plat->serdes_powerup) {
+		ret = priv->plat->serdes_powerup(dev, priv->plat->bsp_priv);
+		if (ret < 0) {
+			netdev_err(priv->dev, "%s: Serdes powerup failed\n",
+				   __func__);
+			goto init_error;
+		}
+	}
+
 	ret = stmmac_hw_setup(dev, true);
 	if (ret < 0) {
 		netdev_err(priv->dev, "%s: Hw setup failed\n", __func__);
@@ -3045,6 +3064,10 @@ static int stmmac_release(struct net_device *dev)
 
 	/* Disable the MAC Rx/Tx */
 	stmmac_mac_set(priv, priv->ioaddr, false);
+
+	/* Powerdown Serdes if there is */
+	if (priv->plat->serdes_powerdown)
+		priv->plat->serdes_powerdown(dev, priv->plat->bsp_priv);
 
 	netif_carrier_off(dev);
 
@@ -4935,7 +4958,7 @@ static void stmmac_napi_del(struct net_device *dev)
 int stmmac_reinit_queues(struct net_device *dev, u32 rx_cnt, u32 tx_cnt)
 {
 	struct stmmac_priv *priv = netdev_priv(dev);
-	int ret = 0;
+	int ret = 0, i;
 
 	if (netif_running(dev))
 		stmmac_release(dev);
@@ -4944,6 +4967,10 @@ int stmmac_reinit_queues(struct net_device *dev, u32 rx_cnt, u32 tx_cnt)
 
 	priv->plat->rx_queues_to_use = rx_cnt;
 	priv->plat->tx_queues_to_use = tx_cnt;
+	if (!netif_is_rxfh_configured(dev))
+		for (i = 0; i < ARRAY_SIZE(priv->rss.table); i++)
+			priv->rss.table[i] = ethtool_rxfh_indir_default(i,
+									rx_cnt);
 
 	stmmac_napi_add(dev);
 
@@ -4968,33 +4995,6 @@ int stmmac_reinit_ringparam(struct net_device *dev, u32 rx_size, u32 tx_size)
 		ret = stmmac_open(dev);
 
 	return ret;
-}
-
-static int phy_rtl8211f_led_fixup(struct phy_device *phydev)
-{
-	u32 val, val2;
-
-	/* Switch to Page 0x0d04 */
-	phy_write(phydev, RTL8211F_PAGE_SELECT, 0x0d04);
-
-	/* Set LED1(Green) Link 10/100/1000M + Active, and set LED2(Yellow) Link 10/100/1000M */
-	val = phy_read(phydev, RTL8211F_LCR_ADDR);
-	val |= (1<<5);
-	val |= (1<<8);
-	val |= (1<<10);
-	val |= (1<<11);
-	val &= (~(1<<14));
-	phy_write(phydev, RTL8211F_LCR_ADDR, val);
-
-	/* Disable LED2(Yellow) EEE LED function to keep it on when linked */
-	val2 = phy_read(phydev, RTL8211F_EEELCR_ADDR);
-	val2 &= (~(1<<3));
-	phy_write(phydev, RTL8211F_EEELCR_ADDR, val2);
-
-	/* Switch back to the PHY's IEEE Standard Registers. Here it is Page 0 */
-	phy_write(phydev, RTL8211F_PAGE_SELECT, 0);
-
-	return 0;
 }
 
 /**
@@ -5095,7 +5095,7 @@ int stmmac_dvr_probe(struct device *device,
 		dev_info(priv->device, "TSO feature enabled\n");
 	}
 
-	if (priv->dma_cap.sphen) {
+	if (priv->dma_cap.sphen && !priv->plat->sph_disable) {
 		ndev->hw_features |= NETIF_F_GRO;
 		if (!priv->plat->sph_disable) {
 			priv->sph = true;
@@ -5230,14 +5230,6 @@ int stmmac_dvr_probe(struct device *device,
 		goto error_netdev_register;
 	}
 
-	if (priv->plat->serdes_powerup) {
-		ret = priv->plat->serdes_powerup(ndev,
-						 priv->plat->bsp_priv);
-
-		if (ret < 0)
-			goto error_serdes_powerup;
-	}
-
 #ifdef CONFIG_DEBUG_FS
 	stmmac_init_fs(ndev);
 #endif
@@ -5247,16 +5239,8 @@ int stmmac_dvr_probe(struct device *device,
 	 */
 	pm_runtime_put(device);
 
-	/* Register fixup for PHY RTL8211F */
-	ret = phy_register_fixup_for_uid(RTL8211F_PHY_ID, RTL8211F_PHY_ID_MASK, phy_rtl8211f_led_fixup);
-	if (ret) {
-		dev_warn(priv->device, "Failed to register fixup for PHY RTL8211F.\n");
-	}
-
 	return ret;
 
-error_serdes_powerup:
-	unregister_netdev(ndev);
 error_netdev_register:
 	phylink_destroy(priv->phylink);
 error_phy_setup:
@@ -5289,12 +5273,6 @@ int stmmac_dvr_remove(struct device *dev)
 	stmmac_mac_set(priv, priv->ioaddr, false);
 	netif_carrier_off(ndev);
 	unregister_netdev(ndev);
-
-	/* Serdes power down needs to happen after VLAN filter
-	 * is deleted that is triggered by unregister_netdev().
-	 */
-	if (priv->plat->serdes_powerdown)
-		priv->plat->serdes_powerdown(ndev, priv->plat->bsp_priv);
 
 #ifdef CONFIG_DEBUG_FS
 	stmmac_exit_fs(ndev);

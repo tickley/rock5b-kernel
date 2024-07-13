@@ -48,6 +48,9 @@ struct cluster_info {
 	int scale;
 	bool is_idle_disabled;
 	bool is_opp_shared_dsu;
+	unsigned int regulator_count;
+	unsigned long rate;
+	unsigned long volt, mem_volt;
 };
 static LIST_HEAD(cluster_info_list);
 
@@ -145,19 +148,6 @@ static int rk3399_get_soc_info(struct device *dev, struct device_node *np,
 		return 0;
 
 	if (of_property_match_string(np, "nvmem-cell-names",
-				     "performance") >= 0) {
-		ret = rockchip_nvmem_cell_read_u8(np, "performance", &value);
-		if (ret) {
-			dev_err(dev, "Failed to get soc performance value\n");
-			goto out;
-		}
-		if (value == 0x01) {
-			*bin = 2;
-			goto out;
-		}
-	}
-
-	if (of_property_match_string(np, "nvmem-cell-names",
 				     "specification_serial_number") >= 0) {
 		ret = rockchip_nvmem_cell_read_u8(np,
 						  "specification_serial_number",
@@ -219,6 +209,9 @@ static int rk3588_get_soc_info(struct device *dev, struct device_node *np,
 		/* RK3588M */
 		if (value == 0xd)
 			*bin = 1;
+		/* RK3588J */
+		else if (value == 0xa)
+			*bin = 2;
 	}
 	if (*bin < 0)
 		*bin = 0;
@@ -226,6 +219,7 @@ static int rk3588_get_soc_info(struct device *dev, struct device_node *np,
 
 	return ret;
 }
+
 static int rk3588_change_length(struct device *dev, struct device_node *np,
 				int bin, int process, int volt_sel)
 {
@@ -524,6 +518,9 @@ static int cpu_opp_helper(struct dev_pm_set_opp_data *data)
 			goto restore_freq;
 	}
 
+	cluster->volt = new_supply_vdd->u_volt;
+	cluster->mem_volt = new_supply_mem->u_volt;
+
 	return 0;
 
 restore_freq:
@@ -608,14 +605,18 @@ static int rockchip_cpufreq_cluster_init(int cpu, struct cluster_info *cluster)
 	}
 	if (opp_info->data && opp_info->data->get_soc_info)
 		opp_info->data->get_soc_info(dev, np, &bin, &process);
+	rockchip_get_soc_info(dev, np, &bin, &process);
+	rockchip_init_pvtpll_table(&cluster->opp_info, bin);
 	rockchip_get_scale_volt_sel(dev, "cpu_leakage", reg_name, bin, process,
 				    &cluster->scale, &volt_sel);
 	if (opp_info->data && opp_info->data->set_soc_info)
 		opp_info->data->set_soc_info(dev, np, bin, process, volt_sel);
 	pname_table = rockchip_set_opp_prop_name(dev, process, volt_sel);
+	rockchip_set_opp_supported_hw(dev, np, bin, volt_sel);
 
 	if (of_find_property(dev->of_node, "cpu-supply", NULL) &&
 	    of_find_property(dev->of_node, "mem-supply", NULL)) {
+		cluster->regulator_count = 2;
 		reg_table = dev_pm_opp_set_regulators(dev, reg_names,
 						      ARRAY_SIZE(reg_names));
 		if (IS_ERR(reg_table)) {
@@ -628,6 +629,8 @@ static int rockchip_cpufreq_cluster_init(int cpu, struct cluster_info *cluster)
 			ret = PTR_ERR(opp_table);
 			goto reg_opp_table;
 		}
+	} else {
+		cluster->regulator_count = 1;
 	}
 
 	of_node_put(np);
@@ -655,6 +658,7 @@ int rockchip_cpufreq_adjust_power_scale(struct device *dev)
 		return -EINVAL;
 	rockchip_adjust_power_scale(dev, cluster->scale);
 	rockchip_pvtpll_calibrate_opp(&cluster->opp_info);
+	rockchip_pvtpll_add_length(&cluster->opp_info);
 
 	return 0;
 }
@@ -663,6 +667,8 @@ EXPORT_SYMBOL_GPL(rockchip_cpufreq_adjust_power_scale);
 int rockchip_cpufreq_opp_set_rate(struct device *dev, unsigned long target_freq)
 {
 	struct cluster_info *cluster;
+	struct dev_pm_opp *opp;
+	unsigned long freq;
 	int ret = 0;
 
 	cluster = rockchip_cluster_info_lookup(dev->id);
@@ -671,6 +677,17 @@ int rockchip_cpufreq_opp_set_rate(struct device *dev, unsigned long target_freq)
 
 	rockchip_monitor_volt_adjust_lock(cluster->mdev_info);
 	ret = dev_pm_opp_set_rate(dev, target_freq);
+	if (!ret) {
+		cluster->rate = target_freq;
+		if (cluster->regulator_count == 1) {
+			freq = target_freq;
+			opp = dev_pm_opp_find_freq_ceil(cluster->opp_info.dev, &freq);
+			if (!IS_ERR(opp)) {
+				cluster->volt = dev_pm_opp_get_voltage(opp);
+				dev_pm_opp_put(opp);
+			}
+		}
+	}
 	rockchip_monitor_volt_adjust_unlock(cluster->mdev_info);
 
 	return ret;
@@ -699,7 +716,7 @@ static int rockchip_cpufreq_add_monitor(struct cluster_info *cluster,
 	if (!mdevp)
 		return -ENOMEM;
 
-	mdevp->type = MONITOR_TPYE_CPU;
+	mdevp->type = MONITOR_TYPE_CPU;
 	mdevp->low_temp_adjust = rockchip_monitor_cpu_low_temp_adjust;
 	mdevp->high_temp_adjust = rockchip_monitor_cpu_high_temp_adjust;
 	mdevp->update_volt = rockchip_monitor_check_rate_volt;
@@ -916,9 +933,17 @@ static int rockchip_cpufreq_panic_notifier(struct notifier_block *nb,
 					   unsigned long v, void *p)
 {
 	struct cluster_info *ci;
+	struct device *dev;
 
 	list_for_each_entry(ci, &cluster_info_list, list_head) {
-		rockchip_opp_dump_cur_state(ci->opp_info.dev);
+		dev = ci->opp_info.dev;
+
+		if (ci->regulator_count == 1)
+			dev_info(dev, "cur_freq: %lu Hz, volt: %lu uV\n",
+				 ci->rate, ci->volt);
+		else
+			dev_info(dev, "cur_freq: %lu Hz, volt_vdd: %lu uV, volt_mem: %lu uV\n",
+				 ci->rate, ci->volt, ci->mem_volt);
 	}
 
 	return 0;

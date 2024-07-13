@@ -468,6 +468,10 @@ static int rkvenc_run(struct mpp_dev *mpp,
 				rkvenc_write_req_backward(mpp, task->reg, s, e, reg_en);
 			}
 		}
+
+		/* flush tlb before starting hardware */
+		mpp_iommu_flush_tlb(mpp->iommu_info);
+
 		/* init current task */
 		mpp->cur_task = mpp_task;
 
@@ -522,7 +526,7 @@ static int rkvenc_isr(struct mpp_dev *mpp)
 		return IRQ_HANDLED;
 	}
 
-	mpp_time_diff(mpp_task, 0);
+	mpp_time_diff(mpp_task);
 	mpp->cur_task = NULL;
 	task = to_rkvenc_task(mpp_task);
 	task->irq_status = mpp->irq_status;
@@ -530,9 +534,11 @@ static int rkvenc_isr(struct mpp_dev *mpp)
 
 	if (task->irq_status & RKVENC_INT_ERROR_BITS) {
 		atomic_inc(&mpp->reset_request);
-		/* dump register */
-		mpp_debug(DEBUG_DUMP_ERR_REG, "irq_status: %08x\n", task->irq_status);
-		mpp_task_dump_hw_reg(mpp);
+		if (mpp_debug_unlikely(DEBUG_DUMP_ERR_REG)) {
+			/* dump error register */
+			mpp_debug(DEBUG_DUMP_ERR_REG, "irq_status: %08x\n", task->irq_status);
+			mpp_task_dump_hw_reg(mpp);
+		}
 	}
 
 	/* unmap reserve buffer */
@@ -963,7 +969,7 @@ static struct devfreq_cooling_power venc_cooling_power_data = {
 };
 
 static struct monitor_dev_profile enc_mdevp = {
-	.type = MONITOR_TPYE_DEV,
+	.type = MONITOR_TYPE_DEV,
 	.low_temp_adjust = rockchip_monitor_dev_low_temp_adjust,
 	.high_temp_adjust = rockchip_monitor_dev_high_temp_adjust,
 };
@@ -1226,7 +1232,7 @@ static int rkvenc_init(struct mpp_dev *mpp)
 	}
 	INIT_WORK(&enc->iommu_work, rkvenc_iommu_handle_work);
 
-	mpp->iommu_info->hdl = rkvenc_iommu_fault_handle;
+	mpp->fault_handler = rkvenc_iommu_fault_handle;
 
 	return ret;
 }

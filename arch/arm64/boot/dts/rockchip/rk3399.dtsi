@@ -44,15 +44,11 @@
 		mmc0 = &sdio0;
 		mmc1 = &sdmmc;
 		mmc2 = &sdhci;
-		pwm0 = &pwm0;
-		pwm1 = &pwm1;
 		serial0 = &uart0;
 		serial1 = &uart1;
 		serial2 = &uart2;
 		serial3 = &uart3;
 		serial4 = &uart4;
-		spi1 = &spi1;
-		spi2 = &spi2;
 	};
 
 	cpus {
@@ -291,6 +287,7 @@
 		       <&pcie_phy 2>, <&pcie_phy 3>;
 		phy-names = "pcie-phy-0", "pcie-phy-1",
 			    "pcie-phy-2", "pcie-phy-3";
+		power-domains = <&power RK3399_PD_PERIHP>;
 		ranges = <0x83000000 0x0 0xfa000000 0x0 0xfa000000 0x0 0x1e00000
 			  0x81000000 0x0 0xfbe00000 0x0 0xfbe00000 0x0 0x100000>;
 		resets = <&cru SRST_PCIE_CORE>, <&cru SRST_PCIE_MGMT>,
@@ -459,6 +456,8 @@
 			snps,dis_u2_susphy_quirk;
 			snps,dis-del-phy-power-chg-quirk;
 			snps,dis-tx-ipgap-linecheck-quirk;
+			snps,parkmode-disable-hs-quirk;
+			snps,parkmode-disable-ss-quirk;
 			power-domains = <&power RK3399_PD_USB3>;
 			status = "disabled";
 		};
@@ -495,6 +494,8 @@
 			snps,dis_u2_susphy_quirk;
 			snps,dis-del-phy-power-chg-quirk;
 			snps,dis-tx-ipgap-linecheck-quirk;
+			snps,parkmode-disable-hs-quirk;
+			snps,parkmode-disable-ss-quirk;
 			power-domains = <&power RK3399_PD_USB3>;
 			status = "disabled";
 		};
@@ -1507,14 +1508,6 @@
 		wafer_info: wafer-info@1c {
 			reg = <0x1c 0x1>;
 		};
-		cpu_performance: cpu-performance@1e {
-			reg = <0x1e 0x1>;
-			bits = <3 3>;
-		};
-		gpu_performance: gpu-performance@1e {
-		reg = <0x1e 0x1>;
-			bits = <6 2>;
-		};
 		customer_demand: customer-demand@22 {
 			reg = <0x22 0x1>;
 			bits = <4 4>;
@@ -1642,6 +1635,7 @@
 			reg = <0xf780 0x24>;
 			clocks = <&sdhci>;
 			clock-names = "emmcclk";
+			drive-impedance-ohm = <50>;
 			#phy-cells = <0>;
 			status = "disabled";
 		};
@@ -1652,7 +1646,6 @@
 			clock-names = "refclk";
 			#phy-cells = <1>;
 			resets = <&cru SRST_PCIEPHY>;
-			drive-impedance-ohm = <50>;
 			reset-names = "phy";
 			status = "disabled";
 		};
@@ -2398,6 +2391,11 @@
 			bias-disable;
 		};
 
+		pcfg_pull_none_10ma: pcfg-pull-none-10ma {
+			bias-disable;
+			drive-strength = <10>;
+		};
+
 		pcfg_pull_none_12ma: pcfg-pull-none-12ma {
 			bias-disable;
 			drive-strength = <12>;
@@ -2426,6 +2424,11 @@
 		pcfg_pull_up_8ma: pcfg-pull-up-8ma {
 			bias-pull-up;
 			drive-strength = <8>;
+		};
+
+		pcfg_pull_up_10ma: pcfg-pull-up-10ma {
+			bias-pull-up;
+			drive-strength = <10>;
 		};
 
 		pcfg_pull_up_18ma: pcfg-pull-up-18ma {
