@@ -37,4 +37,3 @@ obj-$(CONFIG_VIRT_WIFI)	+= virt_wifi.o
 obj-$(CONFIG_WL_ROCKCHIP)	+= rockchip_wlan/
 
 obj-$(CONFIG_RTL8852BE)		+= rtl8852be/
-obj-$(CONFIG_RTL8852BU)		+= rtl8852bu/
