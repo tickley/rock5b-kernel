@@ -2450,7 +2450,7 @@ static bool rockchip_vop2_mod_supported(struct drm_plane *plane, u32 format, u64
 	if (!rockchip_afbc(plane, modifier) &&
 	    !rockchip_rfbc(plane, modifier) &&
 	    !rockchip_tiled(plane, modifier)) {
-		//DRM_ERROR("%s unsupported format modifier 0x%llx\n", plane->name, modifier);
+		DRM_ERROR("%s unsupported format modifier 0x%llx\n", plane->name, modifier);
 
 		return false;
 	}
@@ -13758,7 +13758,7 @@ static char *vop2_plane_mask_to_string(unsigned long mask)
 
 static inline const char *vop2_plane_id_to_string(unsigned long phy)
 {
-	if (phy >= ARRAY_SIZE(vop2_layer_name_list))
+	if (WARN_ON(phy >= ARRAY_SIZE(vop2_layer_name_list)))
 		return NULL;
 
 	return vop2_layer_name_list[phy];
