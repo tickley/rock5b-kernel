@@ -84,6 +84,7 @@ struct fusb302_chip {
 	bool irq_suspended;
 	bool irq_while_suspended;
 	struct gpio_desc *gpio_int_n;
+	struct gpio_desc *gpio_sel;
 	int gpio_int_n_irq;
 	struct extcon_dev *extcon;
 
@@ -105,6 +106,7 @@ struct fusb302_chip {
 	bool vbus_on;
 	bool charge_on;
 	bool vbus_present;
+	bool devices_reversal;
 	enum typec_cc_polarity cc_polarity;
 	enum typec_cc_status cc1;
 	enum typec_cc_status cc2;
@@ -387,6 +389,14 @@ static int fusb302_set_power_mode(struct fusb302_chip *chip, u8 power_mode)
 	ret = fusb302_i2c_write(chip, FUSB_REG_POWER, power_mode);
 
 	return ret;
+}
+
+static int fusb302_rx_fifo_is_empty(struct fusb302_chip *chip)
+{
+	u8 data;
+
+	return (fusb302_i2c_read(chip, FUSB_REG_STATUS1, &data) > 0) &&
+		(data & FUSB_REG_STATUS1_RX_EMPTY);
 }
 
 static int tcpm_init(struct tcpc_dev *dev)
@@ -698,6 +708,34 @@ done:
 	mutex_unlock(&chip->lock);
 
 	return ret;
+}
+
+/*	For a single group of USB3.0, the signal direction
+	output of USB3.0 needs to be selected according to
+	the direction of TYPE C positive and negative insertion */
+static int fusb302_sel_gpio(struct fusb302_chip *chip){
+
+	if (chip->cc1 == TYPEC_CC_RD &&
+		(chip->cc2 == TYPEC_CC_OPEN || chip->cc2 == TYPEC_CC_RA)) {
+		chip->devices_reversal = false;
+	} else if (chip->cc2 == TYPEC_CC_RD &&
+		(chip->cc1 == TYPEC_CC_OPEN || chip->cc1 == TYPEC_CC_RA)) {
+		chip->devices_reversal = true;
+	} else if (chip->cc1 == TYPEC_CC_RA && chip->cc2 == TYPEC_CC_RD) {
+		chip->devices_reversal = true;
+	} else if (chip->cc1 == TYPEC_CC_RD && chip->cc2 == TYPEC_CC_RA) {
+		chip->devices_reversal = false;
+	} else {
+		return -1;
+	}
+
+	if(chip->devices_reversal) {
+		gpiod_set_value(chip->gpio_sel, 1);
+	} else {
+		gpiod_set_value(chip->gpio_sel, 0);
+	};
+
+	return 0;
 }
 
 static int tcpm_get_cc(struct tcpc_dev *dev, enum typec_cc_status *cc1,
@@ -1342,6 +1380,8 @@ static int fusb302_handle_togdone_src(struct fusb302_chip *chip,
 	} else if (cc2 == TYPEC_CC_RD &&
 		    (cc1 == TYPEC_CC_OPEN || cc1 == TYPEC_CC_RA)) {
 		cc_polarity = TYPEC_POLARITY_CC2;
+	} else if (cc1 == TYPEC_CC_RA && cc2 == TYPEC_CC_RA) {
+		cc_polarity = TYPEC_POLARITY_CC2;
 	} else {
 		fusb302_log(chip, "unexpected CC status cc1=%s, cc2=%s, restarting toggling",
 			    typec_cc_status_name[cc1],
@@ -1592,12 +1632,7 @@ static void fusb302_irq_work(struct kthread_work *work)
 
 	if (interrupta & FUSB_REG_INTERRUPTA_TX_SUCCESS) {
 		fusb302_log(chip, "IRQ: PD tx success");
-		ret = fusb302_pd_read_message(chip, &pd_msg);
-		if (ret < 0) {
-			fusb302_log(chip,
-				    "cannot read in PD message, ret=%d", ret);
-			goto done;
-		}
+		tcpm_pd_transmit_complete(chip->tcpm_port, TCPC_TX_SUCCESS);
 	}
 
 	if (interrupta & FUSB_REG_INTERRUPTA_HARDRESET) {
@@ -1612,13 +1647,23 @@ static void fusb302_irq_work(struct kthread_work *work)
 
 	if (interruptb & FUSB_REG_INTERRUPTB_GCRCSENT) {
 		fusb302_log(chip, "IRQ: PD sent good CRC");
-		ret = fusb302_pd_read_message(chip, &pd_msg);
-		if (ret < 0) {
-			fusb302_log(chip,
-				    "cannot read in PD message, ret=%d", ret);
-			goto done;
+
+		while (!fusb302_rx_fifo_is_empty(chip)) {
+			memset(&pd_msg, 0, sizeof(struct pd_message));
+			ret = fusb302_pd_read_message(chip, &pd_msg);
+			if (ret < 0) {
+				fusb302_log(chip,
+					    "cannot read in PD message, ret=%d", ret);
+				goto done;
+			}
 		}
 	}
+
+	ret = fusb302_sel_gpio(chip);
+	if (ret < 0) {
+		fusb302_log(chip, "fusb302 have no usb stroage devices");
+	}
+
 done:
 	mutex_unlock(&chip->lock);
 	enable_irq(chip->gpio_int_n_irq);
@@ -1729,6 +1774,11 @@ static int fusb302_probe(struct i2c_client *client,
 	INIT_DELAYED_WORK(&chip->bc_lvl_handler, fusb302_bc_lvl_handler_work);
 	init_tcpc_dev(&chip->tcpc_dev);
 	fusb302_debugfs_init(chip);
+
+	chip->gpio_sel = devm_gpiod_get(dev, "sel", GPIOD_OUT_HIGH);
+	if (IS_ERR(chip->gpio_sel)) {
+		dev_err(dev, "failed to request gpio_sel\n");
+	}
 
 	if (client->irq) {
 		chip->gpio_int_n_irq = client->irq;
