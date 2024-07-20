@@ -12045,97 +12045,97 @@ rtl8125_esd_checker(struct rtl8125_private *tp)
 
         pci_read_config_byte(pdev, PCI_COMMAND, &cmd);
         if (cmd != tp->pci_cfg_space.cmd) {
-                printk(KERN_ERR "%s: cmd = 0x%02x, should be 0x%02x \n.", dev->name, cmd, tp->pci_cfg_space.cmd);
+                printk(KERN_ERR "%s: cmd = 0x%02x, should be 0x%02x .\n", dev->name, cmd, tp->pci_cfg_space.cmd);
                 pci_write_config_byte(pdev, PCI_COMMAND, tp->pci_cfg_space.cmd);
                 tp->esd_flag |= BIT_0;
 
                 pci_read_config_byte(pdev, PCI_COMMAND, &cmd);
                 if (cmd == 0xff) {
-                        printk(KERN_ERR "%s: pci link is down \n.", dev->name);
+                        printk(KERN_ERR "%s: pci link is down .\n", dev->name);
                         goto exit;
                 }
         }
 
         pci_read_config_word(pdev, PCI_BASE_ADDRESS_0, &io_base_l);
         if (io_base_l != tp->pci_cfg_space.io_base_l) {
-                printk(KERN_ERR "%s: io_base_l = 0x%04x, should be 0x%04x \n.", dev->name, io_base_l, tp->pci_cfg_space.io_base_l);
+                printk(KERN_ERR "%s: io_base_l = 0x%04x, should be 0x%04x .\n", dev->name, io_base_l, tp->pci_cfg_space.io_base_l);
                 pci_write_config_word(pdev, PCI_BASE_ADDRESS_0, tp->pci_cfg_space.io_base_l);
                 tp->esd_flag |= BIT_1;
         }
 
         pci_read_config_word(pdev, PCI_BASE_ADDRESS_2, &mem_base_l);
         if (mem_base_l != tp->pci_cfg_space.mem_base_l) {
-                printk(KERN_ERR "%s: mem_base_l = 0x%04x, should be 0x%04x \n.", dev->name, mem_base_l, tp->pci_cfg_space.mem_base_l);
+                printk(KERN_ERR "%s: mem_base_l = 0x%04x, should be 0x%04x .\n", dev->name, mem_base_l, tp->pci_cfg_space.mem_base_l);
                 pci_write_config_word(pdev, PCI_BASE_ADDRESS_2, tp->pci_cfg_space.mem_base_l);
                 tp->esd_flag |= BIT_2;
         }
 
         pci_read_config_word(pdev, PCI_BASE_ADDRESS_2 + 2, &mem_base_h);
         if (mem_base_h!= tp->pci_cfg_space.mem_base_h) {
-                printk(KERN_ERR "%s: mem_base_h = 0x%04x, should be 0x%04x \n.", dev->name, mem_base_h, tp->pci_cfg_space.mem_base_h);
+                printk(KERN_ERR "%s: mem_base_h = 0x%04x, should be 0x%04x .\n", dev->name, mem_base_h, tp->pci_cfg_space.mem_base_h);
                 pci_write_config_word(pdev, PCI_BASE_ADDRESS_2 + 2, tp->pci_cfg_space.mem_base_h);
                 tp->esd_flag |= BIT_3;
         }
 
         pci_read_config_word(pdev, PCI_BASE_ADDRESS_3, &resv_0x1c_l);
         if (resv_0x1c_l != tp->pci_cfg_space.resv_0x1c_l) {
-                printk(KERN_ERR "%s: resv_0x1c_l = 0x%04x, should be 0x%04x \n.", dev->name, resv_0x1c_l, tp->pci_cfg_space.resv_0x1c_l);
+                printk(KERN_ERR "%s: resv_0x1c_l = 0x%04x, should be 0x%04x .\n", dev->name, resv_0x1c_l, tp->pci_cfg_space.resv_0x1c_l);
                 pci_write_config_word(pdev, PCI_BASE_ADDRESS_3, tp->pci_cfg_space.resv_0x1c_l);
                 tp->esd_flag |= BIT_4;
         }
 
         pci_read_config_word(pdev, PCI_BASE_ADDRESS_3 + 2, &resv_0x1c_h);
         if (resv_0x1c_h != tp->pci_cfg_space.resv_0x1c_h) {
-                printk(KERN_ERR "%s: resv_0x1c_h = 0x%04x, should be 0x%04x \n.", dev->name, resv_0x1c_h, tp->pci_cfg_space.resv_0x1c_h);
+                printk(KERN_ERR "%s: resv_0x1c_h = 0x%04x, should be 0x%04x .\n", dev->name, resv_0x1c_h, tp->pci_cfg_space.resv_0x1c_h);
                 pci_write_config_word(pdev, PCI_BASE_ADDRESS_3 + 2, tp->pci_cfg_space.resv_0x1c_h);
                 tp->esd_flag |= BIT_5;
         }
 
         pci_read_config_word(pdev, PCI_BASE_ADDRESS_4, &resv_0x20_l);
         if (resv_0x20_l != tp->pci_cfg_space.resv_0x20_l) {
-                printk(KERN_ERR "%s: resv_0x20_l = 0x%04x, should be 0x%04x \n.", dev->name, resv_0x20_l, tp->pci_cfg_space.resv_0x20_l);
+                printk(KERN_ERR "%s: resv_0x20_l = 0x%04x, should be 0x%04x .\n", dev->name, resv_0x20_l, tp->pci_cfg_space.resv_0x20_l);
                 pci_write_config_word(pdev, PCI_BASE_ADDRESS_4, tp->pci_cfg_space.resv_0x20_l);
                 tp->esd_flag |= BIT_6;
         }
 
         pci_read_config_word(pdev, PCI_BASE_ADDRESS_4 + 2, &resv_0x20_h);
         if (resv_0x20_h != tp->pci_cfg_space.resv_0x20_h) {
-                printk(KERN_ERR "%s: resv_0x20_h = 0x%04x, should be 0x%04x \n.", dev->name, resv_0x20_h, tp->pci_cfg_space.resv_0x20_h);
+                printk(KERN_ERR "%s: resv_0x20_h = 0x%04x, should be 0x%04x .\n", dev->name, resv_0x20_h, tp->pci_cfg_space.resv_0x20_h);
                 pci_write_config_word(pdev, PCI_BASE_ADDRESS_4 + 2, tp->pci_cfg_space.resv_0x20_h);
                 tp->esd_flag |= BIT_7;
         }
 
         pci_read_config_word(pdev, PCI_BASE_ADDRESS_5, &resv_0x24_l);
         if (resv_0x24_l != tp->pci_cfg_space.resv_0x24_l) {
-                printk(KERN_ERR "%s: resv_0x24_l = 0x%04x, should be 0x%04x \n.", dev->name, resv_0x24_l, tp->pci_cfg_space.resv_0x24_l);
+                printk(KERN_ERR "%s: resv_0x24_l = 0x%04x, should be 0x%04x .\n", dev->name, resv_0x24_l, tp->pci_cfg_space.resv_0x24_l);
                 pci_write_config_word(pdev, PCI_BASE_ADDRESS_5, tp->pci_cfg_space.resv_0x24_l);
                 tp->esd_flag |= BIT_8;
         }
 
         pci_read_config_word(pdev, PCI_BASE_ADDRESS_5 + 2, &resv_0x24_h);
         if (resv_0x24_h != tp->pci_cfg_space.resv_0x24_h) {
-                printk(KERN_ERR "%s: resv_0x24_h = 0x%04x, should be 0x%04x \n.", dev->name, resv_0x24_h, tp->pci_cfg_space.resv_0x24_h);
+                printk(KERN_ERR "%s: resv_0x24_h = 0x%04x, should be 0x%04x .\n", dev->name, resv_0x24_h, tp->pci_cfg_space.resv_0x24_h);
                 pci_write_config_word(pdev, PCI_BASE_ADDRESS_5 + 2, tp->pci_cfg_space.resv_0x24_h);
                 tp->esd_flag |= BIT_9;
         }
 
         pci_read_config_byte(pdev, PCI_INTERRUPT_LINE, &ilr);
         if (ilr != tp->pci_cfg_space.ilr) {
-                printk(KERN_ERR "%s: ilr = 0x%02x, should be 0x%02x \n.", dev->name, ilr, tp->pci_cfg_space.ilr);
+                printk(KERN_ERR "%s: ilr = 0x%02x, should be 0x%02x .\n", dev->name, ilr, tp->pci_cfg_space.ilr);
                 pci_write_config_byte(pdev, PCI_INTERRUPT_LINE, tp->pci_cfg_space.ilr);
                 tp->esd_flag |= BIT_10;
         }
 
         pci_read_config_word(pdev, PCI_SUBSYSTEM_VENDOR_ID, &resv_0x2c_l);
         if (resv_0x2c_l != tp->pci_cfg_space.resv_0x2c_l) {
-                printk(KERN_ERR "%s: resv_0x2c_l = 0x%04x, should be 0x%04x \n.", dev->name, resv_0x2c_l, tp->pci_cfg_space.resv_0x2c_l);
+                printk(KERN_ERR "%s: resv_0x2c_l = 0x%04x, should be 0x%04x .\n", dev->name, resv_0x2c_l, tp->pci_cfg_space.resv_0x2c_l);
                 pci_write_config_word(pdev, PCI_SUBSYSTEM_VENDOR_ID, tp->pci_cfg_space.resv_0x2c_l);
                 tp->esd_flag |= BIT_11;
         }
 
         pci_read_config_word(pdev, PCI_SUBSYSTEM_VENDOR_ID + 2, &resv_0x2c_h);
         if (resv_0x2c_h != tp->pci_cfg_space.resv_0x2c_h) {
-                printk(KERN_ERR "%s: resv_0x2c_h = 0x%04x, should be 0x%04x \n.", dev->name, resv_0x2c_h, tp->pci_cfg_space.resv_0x2c_h);
+                printk(KERN_ERR "%s: resv_0x2c_h = 0x%04x, should be 0x%04x .\n", dev->name, resv_0x2c_h, tp->pci_cfg_space.resv_0x2c_h);
                 pci_write_config_word(pdev, PCI_SUBSYSTEM_VENDOR_ID + 2, tp->pci_cfg_space.resv_0x2c_h);
                 tp->esd_flag |= BIT_12;
         }
@@ -12143,21 +12143,21 @@ rtl8125_esd_checker(struct rtl8125_private *tp)
         if (tp->HwPcieSNOffset > 0) {
                 pci_sn_l = rtl8125_csi_read(tp, tp->HwPcieSNOffset);
                 if (pci_sn_l != tp->pci_cfg_space.pci_sn_l) {
-                        printk(KERN_ERR "%s: pci_sn_l = 0x%08x, should be 0x%08x \n.", dev->name, pci_sn_l, tp->pci_cfg_space.pci_sn_l);
+                        printk(KERN_ERR "%s: pci_sn_l = 0x%08x, should be 0x%08x .\n", dev->name, pci_sn_l, tp->pci_cfg_space.pci_sn_l);
                         rtl8125_csi_write(tp, tp->HwPcieSNOffset, tp->pci_cfg_space.pci_sn_l);
                         tp->esd_flag |= BIT_13;
                 }
 
                 pci_sn_h = rtl8125_csi_read(tp, tp->HwPcieSNOffset + 4);
                 if (pci_sn_h != tp->pci_cfg_space.pci_sn_h) {
-                        printk(KERN_ERR "%s: pci_sn_h = 0x%08x, should be 0x%08x \n.", dev->name, pci_sn_h, tp->pci_cfg_space.pci_sn_h);
+                        printk(KERN_ERR "%s: pci_sn_h = 0x%08x, should be 0x%08x .\n", dev->name, pci_sn_h, tp->pci_cfg_space.pci_sn_h);
                         rtl8125_csi_write(tp, tp->HwPcieSNOffset + 4, tp->pci_cfg_space.pci_sn_h);
                         tp->esd_flag |= BIT_14;
                 }
         }
 
         if (tp->esd_flag != 0) {
-                printk(KERN_ERR "%s: esd_flag = 0x%04x\n.\n", dev->name, tp->esd_flag);
+                printk(KERN_ERR "%s: esd_flag = 0x%04x.\n\n", dev->name, tp->esd_flag);
                 netif_tx_stop_all_queues(dev);
                 netif_carrier_off(dev);
                 rtl8125_hw_reset(dev);
