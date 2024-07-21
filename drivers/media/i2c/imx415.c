@@ -58,10 +58,10 @@
 #define V4L2_CID_DIGITAL_GAIN		V4L2_CID_GAIN
 #endif
 
-#define MIPI_FREQ_891M			891000000
-#define MIPI_FREQ_446M			446000000
-#define MIPI_FREQ_743M			743000000
-#define MIPI_FREQ_297M			297000000
+#define MIPI_FREQ_891M			891000000	// 1782Mbps/lane
+#define MIPI_FREQ_446M			446000000	//  891Mbps/lane
+#define MIPI_FREQ_743M			743000000	// 1485Mbps/lane
+#define MIPI_FREQ_297M			297000000	//  594Mbps/lane
 
 #define IMX415_4LANES			4
 
@@ -638,7 +638,7 @@ static __maybe_unused const struct regval imx415_linear_10bit_3864x2192_891M_reg
 	{0x3022, 0x00},
 	{0x3024, 0xCA},
 	{0x3025, 0x08},
-	{0x3028, 0x4C},
+	{0x3028, 0x4C},	 // HMAX (clock number 0x3FE) 0x44C = 30fps 0x3B0 = 35fps 0x360 = 38fps at 10bit
 	{0x3029, 0x04},
 	{0x302C, 0x00},
 	{0x302D, 0x00},
@@ -664,6 +664,55 @@ static __maybe_unused const struct regval imx415_linear_10bit_3864x2192_891M_reg
 	{0x4026, 0x5F},
 	{0x4028, 0x2F},
 	{0x4074, 0x01},
+	{REG_NULL, 0x00},
+};
+
+static __maybe_unused const struct regval imx415_linear_10bit_3864x2192_1485M_regs[] = {
+    /*
+    IMX415-AAQR All-pixel scan CSI-2_4lane 37MHz AD:10bit Output:10bit 1485Mbps Master Mode 60fps Integration Time 16.61ms
+    */
+	{0x3020, 0x00}, // HADD (horizontal binning)
+	{0x3021, 0x00}, // VADD (vertical binning)
+	{0x3022, 0x00}, // ADDMODE (binning 2/2)
+	{0x3024, 0xca}, // VMAX (line number 0x8CA)
+	{0x3025, 0x08}, //
+	{0x3028, 0x26}, // HMAX (clock number 0x16D) , 0x226
+	{0x3029, 0x02}, //
+	{0x302C, 0x00}, //hdr
+	{0x302D, 0x00},	//hdr
+    {0x3031, 0x00}, // ADBIT in (10bit) 0x00=10bit ; 0x01=12bit
+    {0x3032, 0x00}, // ADBIT out (12it) 0x00=10bit ; 0x01=12bit   
+	{0x3033, 0x08}, // SYS_MODE (891Mbps)
+	{0x3050, 0x08}, // SHR0[19:0]
+	{0x3051, 0x00}, // -
+	{0x3054, 0x19},
+	{0x3058, 0x3E},
+	{0x3060, 0x25},
+	{0x3064, 0x4a},
+	{0x30CF, 0x00}, //hdr
+    {0x30C1, 0x00}, // XVS_DRV[1:0]
+    {0x30D9, 0x06}, // DIG_CLP_VSTART (binning 2/2)
+    {0x30DA, 0x02}, // DIG_CLP_VNUM (binning 2/2)
+    {0x3116, 0x24}, // INCKSEL2
+	{0x3118, 0xA0}, // INCKSEL3
+    {0x311A, 0xE0}, // INCKSEL4
+    {0x311E, 0x24}, // INCKSEL5
+    {0x3701, 0x00}, // ADBIT1[7:0] was 0x00 for 10bit
+    {0x4004, 0x48}, // TXCLKESC_FREQ[15:0]
+	{0x4005, 0x09}, // -
+	{0x3260, 0x01}, // hdr 
+	{0x400C, 0x01}, // INCKSEL6
+	{0x4018, 0xA7}, // TCLKPOST
+	{0x401A, 0x57},	// TCLKPREPARE
+	{0x401C, 0x5F}, // TCLKTRAIL
+	{0x401E, 0x97},	// TCLKZERO
+	{0x401F, 0x01}, // -
+	{0x4020, 0x5F}, // THSPREPARE
+	{0x4022, 0xAF}, // THSZERO
+	{0x4024, 0x5F}, // THSTRAIL
+	{0x4026, 0x9F}, // THSEXIT
+	{0x4028, 0x4F}, // TLPX
+	{0x4074, 0x00}, // INCKSEL7
 	{REG_NULL, 0x00},
 };
 
@@ -745,6 +794,99 @@ static __maybe_unused const struct regval imx415_hdr2_12bit_1932x1096_891M_regs[
 	{REG_NULL, 0x00},
 };
 
+static __maybe_unused const struct regval imx415_linear_10bit_1284x720_891M_regs[] = {
+   /*
+    IMX415-AAQR 2/2-line binning & Window cropping 2568x1440 CSI-2_4lane 
+	37.125MHz AD:10bit Output:10bit 891Mbps Master Mode 120fps Integration Time 8.3ms
+    */
+    {0x3008, 0x7F}, // BCWAIT_TIME[9:0]
+    {0x300A, 0x5B}, // CPWAIT_TIME[9:0]
+    {0x301C, 0x04}, // WINMODE (cropping mode)
+    {0x3020, 0x01}, // HADD (horizontal binning)
+    {0x3021, 0x01}, // VADD (vertical binning)
+    {0x3022, 0x01}, // ADDMODE (binning 2/2)
+    {0x3024, 0x6C}, // VMAX (line number 0x66C)
+    {0x3025, 0x06}, //
+    {0x3028, 0x6D}, // HMAX (clock number 0x16D)
+    {0x3029, 0x01}, //
+    {0x3031, 0x00}, // ADBIT input (10bit)=0x00  ; 12bit=0x01
+    {0x3032, 0x00}, // ADBIT output (10bit)=0x00  ; 12bit=0x01
+    {0x3033, 0x05}, // SYS_MODE (891Mbps)
+    {0x3040, 0x88}, // PIX_HST (start hcrop 0x288)
+    {0x3041, 0x02}, //
+    {0x3042, 0x08}, // PIX_HWIDTH (window hcrop 0xA08)
+    {0x3043, 0x0A}, //
+    {0x3044, 0xF0}, // PIX_VST (start vcrop 0x2F0)
+    {0x3045, 0x02}, //
+    {0x3046, 0x40}, // PIX_VWIDTH (window vcrop 0xB40)
+    {0x3047, 0x0B}, //
+    {0x3050, 0x08}, // SHR0[19:0]
+    {0x30C1, 0x00}, // XVS_DRV[1:0]
+    {0x30D9, 0x02}, // DIG_CLP_VSTART (binning 2/2)
+    {0x30DA, 0x01}, // DIG_CLP_VNUM (binning 2/2)
+    {0x3116, 0x24}, // INCKSEL2[7:0]
+    {0x3118, 0xC0}, // INCKSEL3[10:0]
+    {0x311A, 0xE0}, // INCKSEL4[10:0]
+    {0x311E, 0x24}, // INCKSEL5[7:0]
+    {0x3701, 0x00}, // ADBIT1[7:0]
+    {0x4004, 0x48}, // TXCLKESC_FREQ[15:0]
+    {0x4005, 0x09}, //
+    {0x400C, 0x00}, // INCKSEL6
+    {0x4018, 0x7F}, // TCLKPOST[15:0]
+    {0x401A, 0x37}, // TCLKPREPARE[15:0]
+    {0x401C, 0x37}, // TCLKTRAIL[15:0]
+    {0x401E, 0xF7}, // TCLKZERO[15:0]
+    {0x401F, 0x00}, //
+    {0x4020, 0x3F}, // THSPREPARE[15:0]
+    {0x4022, 0x6F}, // THSZERO[15:0]
+    {0x4024, 0x3F}, // THSTRAIL[15:0]
+    {0x4026, 0x5F}, // THSEXIT[15:0]
+    {0x4028, 0x2F}, // TLPX[15:0]
+    {0x4074, 0x01}, // INCKSEL7 [2:0]
+	{REG_NULL, 0x00},
+};
+
+static __maybe_unused const struct regval imx415_linear_10bit_1932x1096_891M_regs[] = {
+    /*
+    IMX415-AAQR 2/2-line binning CSI-2_4lane 37.125MHz AD:10bit Output:10bit 891Mbps Master Mode 90fps Integration Time 11.1ms
+    */
+    {0x3008, 0x7F}, // BCWAIT_TIME[9:0]
+    {0x300A, 0x5B}, // CPWAIT_TIME[9:0]
+    {0x3020, 0x01}, // HADD (horizontal binning)
+    {0x3021, 0x01}, // VADD (vertical binning)
+    {0x3022, 0x01}, // ADDMODE (binning 2/2)
+    {0x3024, 0xCA}, // VMAX (line number 0x8CA)
+    {0x3025, 0x08}, //
+    {0x3028, 0x6D}, // HMAX (clock number 0x16D) , // 0x226 = 62fps   //0x16D = 90fps at 10bit
+    {0x3029, 0x01}, //
+    {0x3031, 0x00}, // ADBIT in (10bit) 0x00=10bit ; 0x01=12bit
+    {0x3032, 0x00}, // ADBIT out (12it) 0x00=10bit ; 0x01=12bit    
+    {0x3033, 0x05}, // SYS_MODE (891Mbps)
+    {0x3050, 0x08}, // SHR0[19:0]
+    {0x30C1, 0x00}, // XVS_DRV[1:0]
+    {0x30D9, 0x02}, // DIG_CLP_VSTART (binning 2/2)
+    {0x30DA, 0x01}, // DIG_CLP_VNUM (binning 2/2)
+    {0x3116, 0x24}, // INCKSEL2
+    {0x3118, 0xC0}, // INCKSEL3
+    {0x311A, 0xE0}, // INCKSEL4
+    {0x311E, 0x24}, // INCKSEL5
+    {0x3701, 0x00}, // ADBIT1[7:0] was 0x00 for 10bit
+    {0x4004, 0x48}, // TXCLKESC_FREQ[15:0]
+    {0x400C, 0x00}, // INCKSEL6
+    {0x4018, 0x7F}, // TCLKPOST
+    {0x401A, 0x37}, // TCLKPREPARE
+    {0x401C, 0x37}, // TCLKTRAIL
+    {0x401E, 0xF7}, // TCLKZERO
+    {0x401F, 0x00}, //
+    {0x4020, 0x3F}, // THSPREPARE
+    {0x4022, 0x6F}, // THSZERO
+    {0x4024, 0x3F}, // THSTRAIL
+    {0x4026, 0x5F}, // THSEXIT
+    {0x4028, 0x2F}, // TLPX
+    {0x4074, 0x01}, // INCKSEL7
+	{REG_NULL, 0x00},
+};
+
 /*
  * The width and height must be configured to be
  * the same as the current output resolution of the sensor.
@@ -777,6 +919,60 @@ static const struct imx415_mode supported_modes[] = {
 		.reg_list = imx415_linear_10bit_3864x2192_891M_regs,
 		.hdr_mode = NO_HDR,
 		.mipi_freq_idx = 1,
+		.bpp = 10,
+		.vc[PAD0] = V4L2_MBUS_CSI2_CHANNEL_0,
+	},
+	{
+		.bus_fmt = MEDIA_BUS_FMT_SGBRG10_1X10,
+		.width = 1944,
+		.height = 1097,
+		.max_fps = {
+			.numerator = 10000,
+			.denominator = 900000,
+		},
+		.exp_def = 0x08ca - 0x08,
+		.hts_def = 0x016D * IMX415_4LANES * 2,
+		.vts_def = 0x08ca,
+		.global_reg_list = imx415_global_10bit_3864x2192_regs,
+		.reg_list = imx415_linear_10bit_1932x1096_891M_regs,
+		.hdr_mode = NO_HDR,
+		.mipi_freq_idx = 1,
+		.bpp = 10,
+		.vc[PAD0] = V4L2_MBUS_CSI2_CHANNEL_0,
+	},
+	{
+		.bus_fmt = MEDIA_BUS_FMT_SGBRG10_1X10,
+		.width = 1284,
+		.height = 720,
+		.max_fps = {
+			.numerator = 10000,
+			.denominator = 1200000,
+		},
+		.exp_def = 0x066C - 0x08,
+		.hts_def = 0x016D * IMX415_4LANES * 2,
+		.vts_def = 0x066C,
+		.global_reg_list = imx415_global_10bit_3864x2192_regs,
+		.reg_list = imx415_linear_10bit_1284x720_891M_regs,
+		.hdr_mode = NO_HDR,
+		.mipi_freq_idx = 1,
+		.bpp = 10,
+		.vc[PAD0] = V4L2_MBUS_CSI2_CHANNEL_0,
+	},
+	{
+		.bus_fmt = MEDIA_BUS_FMT_SGBRG10_1X10,
+		.width = 3864,
+		.height = 2192,
+		.max_fps = {
+			.numerator = 10000,
+			.denominator = 600000,
+		},
+		.exp_def = 0x08ca - 0x08,
+		.hts_def = 0x0226 * IMX415_4LANES * 2,
+		.vts_def = 0x08ca,
+		.global_reg_list = imx415_global_10bit_3864x2192_regs,
+		.reg_list = imx415_linear_10bit_3864x2192_1485M_regs,
+		.hdr_mode = NO_HDR,
+		.mipi_freq_idx = 2,
 		.bpp = 10,
 		.vc[PAD0] = V4L2_MBUS_CSI2_CHANNEL_0,
 	},
@@ -2193,6 +2389,8 @@ static int imx415_enum_frame_interval(struct v4l2_subdev *sd,
 #define DST_HEIGHT_2160 2160
 #define DST_WIDTH_1920 1920
 #define DST_HEIGHT_1080 1080
+#define DST_WIDTH_1280 1280
+#define DST_HEIGHT_720 720
 
 /*
  * The resolution of the driver configuration needs to be exactly
@@ -2220,6 +2418,11 @@ static int imx415_get_selection(struct v4l2_subdev *sd,
 			sel->r.width = DST_WIDTH_1920;
 			sel->r.top = CROP_START(imx415->cur_mode->height, DST_HEIGHT_1080);
 			sel->r.height = DST_HEIGHT_1080;
+		} else if (imx415->cur_mode->width == 1284) {
+			sel->r.left = CROP_START(imx415->cur_mode->width, DST_WIDTH_1280);
+			sel->r.width = DST_WIDTH_1280;
+			sel->r.top = CROP_START(imx415->cur_mode->height, DST_HEIGHT_720);
+			sel->r.height = DST_HEIGHT_720;
 		} else {
 			sel->r.left = CROP_START(imx415->cur_mode->width, imx415->cur_mode->width);
 			sel->r.width = imx415->cur_mode->width;
@@ -2362,9 +2565,9 @@ static int imx415_set_ctrl(struct v4l2_ctrl *ctrl)
 		if (ret)
 			break;
 		if (ctrl->val)
-			val |= IMX415_MIRROR_BIT_MASK;
-		else
 			val &= ~IMX415_MIRROR_BIT_MASK;
+		else
+			val |= IMX415_MIRROR_BIT_MASK;
 		ret = imx415_write_reg(imx415->client, IMX415_FLIP_REG,
 				       IMX415_REG_VALUE_08BIT, val);
 		break;
@@ -2374,9 +2577,9 @@ static int imx415_set_ctrl(struct v4l2_ctrl *ctrl)
 		if (ret)
 			break;
 		if (ctrl->val)
-			val |= IMX415_FLIP_BIT_MASK;
-		else
 			val &= ~IMX415_FLIP_BIT_MASK;
+		else
+			val |= IMX415_FLIP_BIT_MASK;
 		ret = imx415_write_reg(imx415->client, IMX415_FLIP_REG,
 				       IMX415_REG_VALUE_08BIT, val);
 		break;

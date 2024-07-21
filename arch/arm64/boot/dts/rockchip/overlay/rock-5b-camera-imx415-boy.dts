@@ -57,6 +57,8 @@
 				pwdn-gpios = <&gpio4 RK_PA0 GPIO_ACTIVE_HIGH>;
 				reset-gpios = <&gpio1 RK_PB0 GPIO_ACTIVE_LOW>;
 				lens-focus = <&cam_ircut0>;
+				// NO_HDR:0 HDR_X2:5 HDR_X3:6
+				rockchip,camera-hdr-mode = <0>;
 				rockchip,camera-module-index = <0>;
 				rockchip,camera-module-facing = "back";
 				rockchip,camera-module-name = "CMK-OT2022-PX1";
