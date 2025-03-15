@@ -28,6 +28,7 @@
 #include <linux/irq.h>
 #include <linux/of_device.h>
 #include <linux/of_graph.h>
+#include <linux/random.h>
 #include <linux/regmap.h>
 #include <linux/reset.h>
 #include <linux/gpio/consumer.h>
@@ -2244,6 +2245,8 @@ static bool dw_dp_video_need_vsc_sdp(struct dw_dp *dp)
 static int dw_dp_video_set_msa(struct dw_dp *dp, u8 color_format, u8 bpc,
 			       u16 vstart, u16 hstart)
 {
+	struct dw_dp_video *video = &dp->video;
+	struct drm_display_mode *mode = &video->mode;
 	u16 misc = 0;
 
 	if (dw_dp_video_need_vsc_sdp(dp))
@@ -2284,6 +2287,9 @@ static int dw_dp_video_set_msa(struct dw_dp *dp, u8 color_format, u8 bpc,
 	default:
 		return -EINVAL;
 	}
+
+	if ((mode->flags & DRM_MODE_FLAG_INTERLACE) && !(mode->vtotal % 2))
+		misc |= DP_MSA_MISC_INTERLACE_VTOTAL_EVEN;
 
 	regmap_write(dp->regmap, DPTX_VIDEO_MSA1,
 		     FIELD_PREP(VSTART, vstart) | FIELD_PREP(HSTART, hstart));
@@ -2569,19 +2575,24 @@ static void dw_dp_encoder_enable(struct drm_encoder *encoder)
 
 }
 
-static void dw_dp_encoder_disable(struct drm_encoder *encoder)
+static void dw_dp_encoder_atomic_disable(struct drm_encoder *encoder,
+					 struct drm_atomic_state *state)
 {
 	struct dw_dp *dp = encoder_to_dp(encoder);
-	struct drm_crtc *crtc = encoder->crtc;
-	struct rockchip_crtc_state *s = to_rockchip_crtc_state(crtc->state);
+	struct drm_crtc *old_crtc, *new_crtc;
+	struct rockchip_crtc_state *s;
 
-	if (!crtc->state->active_changed)
-		return;
+	old_crtc = rockchip_drm_encoder_get_old_crtc(encoder, state);
+	new_crtc = rockchip_drm_encoder_get_new_crtc(encoder, state);
 
-	if (dp->split_mode)
-		s->output_if &= ~(VOP_OUTPUT_IF_DP0 | VOP_OUTPUT_IF_DP1);
-	else
-		s->output_if &= ~(dp->id ? VOP_OUTPUT_IF_DP1 : VOP_OUTPUT_IF_DP0);
+	if (old_crtc && old_crtc != new_crtc) {
+		s = to_rockchip_crtc_state(old_crtc->state);
+
+		if (dp->split_mode)
+			s->output_if &= ~(VOP_OUTPUT_IF_DP0 | VOP_OUTPUT_IF_DP1);
+		else
+			s->output_if &= ~(dp->id ? VOP_OUTPUT_IF_DP1 : VOP_OUTPUT_IF_DP0);
+	}
 }
 
 static void dw_dp_mode_fixup(struct dw_dp *dp, struct drm_display_mode *adjusted_mode)
@@ -2701,7 +2712,7 @@ static enum drm_mode_status dw_dp_encoder_mode_valid(struct drm_encoder *encoder
 
 static const struct drm_encoder_helper_funcs dw_dp_encoder_helper_funcs = {
 	.enable			= dw_dp_encoder_enable,
-	.disable		= dw_dp_encoder_disable,
+	.atomic_disable		= dw_dp_encoder_atomic_disable,
 	.atomic_check		= dw_dp_encoder_atomic_check,
 	.mode_valid		= dw_dp_encoder_mode_valid,
 };
@@ -2835,6 +2846,9 @@ dw_dp_bridge_mode_valid(struct drm_bridge *bridge,
 	if (!dw_dp_bandwidth_ok(dp, &m, min_bpp, link->lanes, link->rate))
 		return MODE_CLOCK_HIGH;
 
+	if (m.flags & DRM_MODE_FLAG_DBLCLK)
+		return MODE_H_ILLEGAL;
+
 	return MODE_OK;
 }
 
@@ -2899,6 +2913,44 @@ static int dw_dp_loader_protect(struct drm_encoder *encoder, bool on)
 	return 0;
 }
 
+static void dw_dp_crtc_post_enable(struct dw_dp *dp, struct drm_crtc *crtc, int stream_id)
+{
+	int output_if;
+
+	switch (stream_id) {
+	case 0:
+		output_if = VOP_OUTPUT_IF_DP0;
+		break;
+	case 1:
+		output_if = VOP_OUTPUT_IF_DP1;
+		break;
+	default:
+		dev_err(dp->dev, "invalid stream id:%d\n", stream_id);
+		return;
+	}
+
+	rockchip_drm_crtc_output_post_enable(crtc, output_if);
+}
+
+static void dw_dp_crtc_pre_disable(struct dw_dp *dp, struct drm_crtc *crtc, int stream_id)
+{
+	int output_if;
+
+	switch (stream_id) {
+	case 0:
+		output_if = VOP_OUTPUT_IF_DP0;
+		break;
+	case 1:
+		output_if = VOP_OUTPUT_IF_DP1;
+		break;
+	default:
+		dev_err(dp->dev, "invalid stream id:%d\n", stream_id);
+		return;
+	}
+
+	rockchip_drm_crtc_output_pre_disable(crtc, output_if);
+}
+
 static int dw_dp_connector_init(struct dw_dp *dp)
 {
 	struct drm_connector *connector = &dp->connector;
@@ -2913,6 +2965,7 @@ static int dw_dp_connector_init(struct dw_dp *dp)
 		connector->polled = DRM_CONNECTOR_POLL_CONNECT |
 				    DRM_CONNECTOR_POLL_DISCONNECT;
 	connector->ycbcr_420_allowed = true;
+	connector->interlace_allowed = true;
 
 	ret = drm_connector_init(bridge->dev, connector,
 				 &dw_dp_connector_funcs,
@@ -3074,6 +3127,13 @@ static void dw_dp_bridge_atomic_pre_enable(struct drm_bridge *bridge,
 
 	drm_mode_copy(m, &crtc_state->adjusted_mode);
 
+	if (m->flags & DRM_MODE_FLAG_INTERLACE) {
+		m->vdisplay /= 2;
+		m->vsync_end /= 2;
+		m->vsync_start /= 2;
+		m->vtotal /= 2;
+	}
+
 	if (dp->split_mode)
 		drm_mode_convert_to_origin_mode(m);
 
@@ -3180,31 +3240,13 @@ static void dw_dp_bridge_atomic_enable(struct drm_bridge *bridge,
 	if (conn_state->content_protection == DRM_MODE_CONTENT_PROTECTION_DESIRED)
 		dw_dp_hdcp_enable(dp, conn_state->hdcp_content_type);
 
+	dw_dp_crtc_post_enable(dp, bridge->encoder->crtc, dp->id);
+
 	if (dp->panel)
 		drm_panel_enable(dp->panel);
 
 	extcon_set_state_sync(dp->extcon, EXTCON_DISP_DP, true);
 	dw_dp_audio_handle_plugged_change(&dp->audio, true);
-}
-
-static void dw_dp_reset(struct dw_dp *dp)
-{
-	int val;
-
-	disable_irq(dp->irq);
-	regmap_update_bits(dp->regmap, DPTX_SOFT_RESET_CTRL, CONTROLLER_RESET,
-			   FIELD_PREP(CONTROLLER_RESET, 1));
-	udelay(10);
-	regmap_update_bits(dp->regmap, DPTX_SOFT_RESET_CTRL, CONTROLLER_RESET,
-			   FIELD_PREP(CONTROLLER_RESET, 0));
-
-	dw_dp_init(dp);
-	if (!dp->hpd_gpio) {
-		regmap_read_poll_timeout(dp->regmap, DPTX_HPD_STATUS, val,
-					 FIELD_GET(HPD_HOT_PLUG, val), 200, 200000);
-		regmap_write(dp->regmap, DPTX_HPD_STATUS, HPD_HOT_PLUG);
-	}
-	enable_irq(dp->irq);
 }
 
 static void dw_dp_bridge_atomic_disable(struct drm_bridge *bridge,
@@ -3215,11 +3257,11 @@ static void dw_dp_bridge_atomic_disable(struct drm_bridge *bridge,
 	if (dp->panel)
 		drm_panel_disable(dp->panel);
 
+	dw_dp_crtc_pre_disable(dp, bridge->encoder->crtc, dp->id);
 	dw_dp_hdcp_disable(dp);
 	dw_dp_video_disable(dp);
 	dw_dp_link_disable(dp);
 	bitmap_zero(dp->sdp_reg_bank, SDP_REG_BANK_SIZE);
-	dw_dp_reset(dp);
 
 	extcon_set_state_sync(dp->extcon, EXTCON_DISP_DP, false);
 	dw_dp_audio_handle_plugged_change(&dp->audio, false);

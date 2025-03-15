@@ -300,6 +300,9 @@ struct rk628 {
 	u8 version;
 	void *txphy;
 	u8 dphy_lane_en;
+	u8 color_format;
+	u8 color_range;
+	u8 color_space;
 	bool dual_mipi;
 	struct mipi_timing mipi_timing[2];
 	struct mutex rst_lock;
@@ -343,5 +346,6 @@ void rk628_post_process_en(struct rk628 *rk628,
 			   u64 *dst_pclk);
 void rk628_version_parse(struct rk628 *rk628);
 void rk628_debugfs_create(struct rk628 *rk628);
+void rk628_debugfs_remove(struct rk628 *rk628);
 
 #endif

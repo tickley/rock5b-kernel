@@ -30,6 +30,12 @@ config VIDEO_MS41908
 	help
 	  Support motor driver By MS41908 for camera Lens.
 
+config VIDEO_MS41968
+	tristate "Relmon MS41968 motor driver"
+	depends on SPI && VIDEO_V4L2 && VIDEO_V4L2_SUBDEV_API
+	help
+	  Support motor driver By MS41968 for camera Lens.
+
 endmenu
 
 endif
